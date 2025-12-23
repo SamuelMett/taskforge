@@ -1,6 +1,7 @@
 from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy.orm import relationship
 
-from app.db.base import Base
+from app.db.base_class import Base
 
 
 class User(Base):
@@ -11,6 +12,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
 
-    # For 2FA later
     twofa_enabled = Column(Boolean, default=False)
     twofa_secret = Column(String, nullable=True)
+
+    tasks = relationship("Task", back_populates="user", cascade="all, delete-orphan")
