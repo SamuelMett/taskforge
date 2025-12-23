@@ -13,6 +13,9 @@ import qrcode
 from fastapi import Body
 
 from app.api.deps.auth import get_current_user, get_db
+from app.schemas.auth import LoginRequest, Login2FARequest
+from app.api.deps.auth import get_current_user
+
 
 
 router = APIRouter()
@@ -39,45 +42,56 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
 
     return user
 
-
-from fastapi import Body
-
-@router.post("/login")
-def login(
-    payload: UserCreate,
-    db: Session = Depends(get_db),
-    otp: str | None = Body(default=None),
-):
+@router.post("/login/2fa")
+def login_2fa(payload: Login2FARequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
 
-    # If 2FA is enabled, require OTP
-    if user.twofa_enabled:
-        # If user didn't send otp, tell frontend "ask for OTP"
-        if not otp:
-            return {
-                "requires_2fa": True,
-                "message": "2FA code required",
-            }
+    if not user.twofa_enabled:
+        raise HTTPException(status_code=400, detail="2FA is not enabled for this account")
 
-        if not user.twofa_secret:
-            raise HTTPException(status_code=400, detail="2FA secret missing")
+    if not user.twofa_secret:
+        raise HTTPException(status_code=400, detail="2FA secret missing (contact support)")
 
-        totp = pyotp.TOTP(user.twofa_secret)
-        if not totp.verify(otp):
-            raise HTTPException(status_code=401, detail="Invalid 2FA code")
+    totp = pyotp.TOTP(user.twofa_secret)
+    if not totp.verify(payload.otp):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid 2FA code")
 
     token = create_access_token(subject=user.email)
     return {
         "access_token": token,
         "token_type": "bearer",
-        "twofa_enabled": user.twofa_enabled,
+        "twofa_enabled": True,
         "requires_2fa": False,
     }
+
+
+
+@router.post("/login")
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user or not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+
+    # If 2FA is enabled, do NOT issue token yet
+    if user.twofa_enabled:
+        return {
+            "access_token": None,
+            "token_type": "bearer",
+            "twofa_enabled": True,
+            "requires_2fa": True,
+            "message": "2FA code required",
+        }
+
+    token = create_access_token(subject=user.email)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "twofa_enabled": False,
+        "requires_2fa": False,
+    }
+
 
 
 
@@ -137,3 +151,9 @@ def twofa_confirm(
     db.refresh(user)
 
     return {"message": "2FA enabled successfully", "twofa_enabled": True}
+
+
+
+@router.get("/me", response_model=UserOut)
+def me(user: User = Depends(get_current_user)):
+    return user
