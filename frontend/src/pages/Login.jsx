@@ -27,6 +27,7 @@ export default function Login() {
       }
 
       localStorage.setItem("token", token);
+      localStorage.setItem("email", email);
       setAuthToken(token);
 
       nav("/"); 
