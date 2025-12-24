@@ -1,24 +1,27 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Tasks from "./pages/Tasks";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="mx-auto max-w-md px-4 py-10">
-        <h1 className="text-2xl font-semibold">TaskForge</h1>
-        <p className="mt-1 text-sm text-zinc-400">
-          Login/Register UI (PR7)
-        </p>
+    <Routes>
+      <Route path="/" element={<Navigate to="/tasks" replace />} />
 
-        <div className="mt-8">
-          <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-          </Routes>
-        </div>
-      </div>
-    </div>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+
+      <Route
+        path="/tasks"
+        element={
+          <ProtectedRoute>
+            <Tasks />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
