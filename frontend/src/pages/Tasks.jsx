@@ -18,30 +18,55 @@ function fmt(dt) {
   }
 }
 
+// convert ISO -> datetime-local string
+function toLocalInputValue(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  const mm = pad(d.getMonth() + 1);
+  const dd = pad(d.getDate());
+  const hh = pad(d.getHours());
+  const mi = pad(d.getMinutes());
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+}
+
 export default function Tasks() {
   const [tasks, setTasks] = useState([]);
+  const [loadingTasks, setLoadingTasks] = useState(true);
+
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [dueAt, setDueAt] = useState("");
+
   const [error, setError] = useState("");
   const [tab, setTab] = useState("all"); // all | active | done
   const [search, setSearch] = useState("");
+
   const [selected, setSelected] = useState(null);
 
-  async function loadTasks() {
+  // Edit form state (right panel)
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editDueAt, setEditDueAt] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function loadTasks({ keepLoading = false } = {}) {
+    if (!keepLoading) setLoadingTasks(true);
     setError("");
     try {
       const res = await api.get("/tasks");
-      const list = Array.isArray(res.data) ? res.data : [];
-      setTasks(list);
+      setTasks(res.data);
 
       // keep selection in sync
       if (selected) {
-        const updated = list.find((t) => t.id === selected.id);
+        const updated = res.data.find((t) => t.id === selected.id);
         setSelected(updated || null);
       }
     } catch (e) {
       setError(e?.response?.data?.detail || "Failed to load tasks");
+    } finally {
+      setLoadingTasks(false);
     }
   }
 
@@ -49,16 +74,15 @@ export default function Tasks() {
     e.preventDefault();
     setError("");
     try {
-      const payload = {
+      await api.post("/tasks", {
         title,
         description: desc || null,
         due_at: dueAt ? new Date(dueAt).toISOString() : null,
-      };
-      await api.post("/tasks", payload);
+      });
       setTitle("");
       setDesc("");
       setDueAt("");
-      await loadTasks();
+      await loadTasks({ keepLoading: true });
     } catch (e) {
       setError(e?.response?.data?.detail || "Failed to create task");
     }
@@ -68,7 +92,7 @@ export default function Tasks() {
     setError("");
     try {
       await api.patch(`/tasks/${task.id}`, { is_done: !task.is_done });
-      await loadTasks();
+      await loadTasks({ keepLoading: true });
     } catch (e) {
       setError(e?.response?.data?.detail || "Failed to update task");
     }
@@ -76,19 +100,60 @@ export default function Tasks() {
 
   async function deleteTask(task) {
     setError("");
+
+    const ok = window.confirm(`Delete "${task.title}"? This cannot be undone.`);
+    if (!ok) return;
+
     try {
       await api.delete(`/tasks/${task.id}`);
       if (selected?.id === task.id) setSelected(null);
-      await loadTasks();
+      await loadTasks({ keepLoading: true });
     } catch (e) {
       setError(e?.response?.data?.detail || "Failed to delete task");
     }
+  }
+
+  async function saveEdits() {
+    if (!selected) return;
+    setSaving(true);
+    setError("");
+
+    try {
+      await api.patch(`/tasks/${selected.id}`, {
+        title: editTitle,
+        description: editDesc || null,
+        due_at: editDueAt ? new Date(editDueAt).toISOString() : null,
+      });
+
+      await loadTasks({ keepLoading: true });
+      // selection will refresh from loadTasks sync
+    } catch (e) {
+      setError(e?.response?.data?.detail || "Failed to save changes");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function resetEditsFromSelected(task) {
+    setEditTitle(task?.title || "");
+    setEditDesc(task?.description || "");
+    setEditDueAt(task?.due_at ? toLocalInputValue(task.due_at) : "");
   }
 
   useEffect(() => {
     loadTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Whenever selected changes, load edit fields
+  useEffect(() => {
+    if (selected) resetEditsFromSelected(selected);
+    else {
+      setEditTitle("");
+      setEditDesc("");
+      setEditDueAt("");
+    }
+  }, [selected]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -140,61 +205,109 @@ export default function Tasks() {
       <div>
         <h3 className="text-sm font-semibold text-zinc-200">Task details</h3>
         <p className="mt-1 text-xs text-zinc-400">
-          {selected ? "Preview and actions." : "Select a task to preview."}
+          {selected ? "Edit and manage the selected task." : "Select a task to preview."}
         </p>
       </div>
 
-      {selected ? (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-          <div className="text-sm font-semibold">{selected.title}</div>
-
-          {selected.description ? (
-            <div className="mt-2 text-sm text-zinc-300">
-              {selected.description}
-            </div>
-          ) : (
-            <div className="mt-2 text-sm text-zinc-500 italic">
-              No description
-            </div>
-          )}
-
-          <div className="mt-3 space-y-1 text-xs text-zinc-400">
-            <div>
-              Status:{" "}
-              <span className="text-zinc-200">
-                {selected.is_done ? "Done" : "Active"}
-              </span>
-            </div>
-            <div>
-              Due:{" "}
-              <span className="text-zinc-200">
-                {selected.due_at ? fmt(selected.due_at) : "No due date"}
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-2">
-            <button
-              onClick={() => toggleDone(selected)}
-              className="w-full rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100 hover:bg-emerald-500/15"
-            >
-              {selected.is_done ? "Mark as active" : "Mark as done"}
-            </button>
-
-            <button
-              onClick={() => deleteTask(selected)}
-              className="w-full rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-red-100 hover:bg-red-500/15"
-            >
-              Delete task
-            </button>
-          </div>
+      {!selected ? (
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4 text-sm text-zinc-400">
+          Click a task card to preview + edit it here.
         </div>
       ) : (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4 text-sm text-zinc-400">
-          Click a task card to preview it here.
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
+          <div className="text-xs font-semibold text-zinc-400">Editing</div>
+
+          <div className="mt-4 space-y-3">
+            <div>
+              <label className="text-sm text-zinc-300">Title</label>
+              <input
+                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                disabled={saving}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-zinc-300">Description</label>
+              <textarea
+                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                rows={4}
+                disabled={saving}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-zinc-300">Due date</label>
+              <input
+                type="datetime-local"
+                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
+                value={editDueAt}
+                onChange={(e) => setEditDueAt(e.target.value)}
+                disabled={saving}
+              />
+              <div className="mt-1 text-xs text-zinc-500">
+                Leave blank for “No due date”.
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                onClick={saveEdits}
+                disabled={saving || !editTitle.trim()}
+                className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium hover:bg-indigo-500 disabled:opacity-60"
+              >
+                {saving ? "Saving..." : "Save changes"}
+              </button>
+
+              <button
+                onClick={() => resetEditsFromSelected(selected)}
+                disabled={saving}
+                className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <button
+                onClick={() => toggleDone(selected)}
+                disabled={saving}
+                className="w-full rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100 hover:bg-emerald-500/15 disabled:opacity-60"
+              >
+                {selected.is_done ? "Mark as active" : "Mark as done"}
+              </button>
+
+              <button
+                onClick={() => deleteTask(selected)}
+                disabled={saving}
+                className="w-full rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-red-100 hover:bg-red-500/15 disabled:opacity-60"
+              >
+                Delete task
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-1 text-xs text-zinc-400">
+              <div>
+                Status:{" "}
+                <span className="text-zinc-200">
+                  {selected.is_done ? "Done" : "Active"}
+                </span>
+              </div>
+              <div>
+                Due:{" "}
+                <span className="text-zinc-200">
+                  {selected.due_at ? fmt(selected.due_at) : "No due date"}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
+      {/* Insights */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4">
         <div className="text-xs font-semibold text-zinc-300">Insights</div>
         <div className="mt-3 grid gap-2 text-sm">
@@ -204,15 +317,11 @@ export default function Tasks() {
           </div>
           <div className="flex items-center justify-between text-zinc-300">
             <span>Completed</span>
-            <span className="text-zinc-100">
-              {tasks.filter((t) => t.is_done).length}
-            </span>
+            <span className="text-zinc-100">{tasks.filter((t) => t.is_done).length}</span>
           </div>
           <div className="flex items-center justify-between text-zinc-300">
             <span>Remaining</span>
-            <span className="text-zinc-100">
-              {tasks.filter((t) => !t.is_done).length}
-            </span>
+            <span className="text-zinc-100">{tasks.filter((t) => !t.is_done).length}</span>
           </div>
         </div>
       </div>
@@ -221,6 +330,7 @@ export default function Tasks() {
 
   return (
     <Layout search={search} setSearch={setSearch} rightPanel={rightPanel}>
+      {/* Header */}
       <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/20 p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -255,7 +365,16 @@ export default function Tasks() {
         </div>
       )}
 
+      {loadingTasks ? (
+        <div className="mt-8 text-sm text-zinc-400">Loading tasks…</div>
+      ) : tasks.length === 0 ? (
+        <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/20 p-6 text-sm text-zinc-400">
+          No tasks yet. Create one to get started.
+        </div>
+      ) : null}
+
       <div className="mt-8 grid gap-6 xl:grid-cols-3">
+        {/* Create */}
         <div className="xl:col-span-1 rounded-2xl border border-zinc-900 bg-zinc-900/20 p-6">
           <h2 className="text-lg font-semibold">Create task</h2>
 
@@ -266,7 +385,7 @@ export default function Tasks() {
                 className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Finish PR10 UI"
+                placeholder="Type your task title..."
                 required
               />
             </div>
@@ -290,9 +409,6 @@ export default function Tasks() {
                 value={dueAt}
                 onChange={(e) => setDueAt(e.target.value)}
               />
-              <div className="mt-1 text-xs text-zinc-500">
-                Tip: leave blank for “No due date”.
-              </div>
             </div>
 
             <button className="w-full rounded-xl bg-indigo-600 py-2 font-medium hover:bg-indigo-500">
@@ -301,7 +417,7 @@ export default function Tasks() {
 
             <button
               type="button"
-              onClick={loadTasks}
+              onClick={() => loadTasks({ keepLoading: true })}
               className="w-full rounded-xl border border-zinc-800 bg-zinc-900 py-2 text-sm hover:bg-zinc-800"
             >
               Refresh
