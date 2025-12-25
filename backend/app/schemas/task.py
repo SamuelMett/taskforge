@@ -1,12 +1,15 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 from pydantic import BaseModel, ConfigDict
+
+Priority = Literal["low", "med", "high"]
 
 
 class TaskBase(BaseModel):
     title: str
     description: Optional[str] = None
     due_at: Optional[datetime] = None
+    priority: Priority = "med"
 
 
 class TaskCreate(TaskBase):
@@ -18,6 +21,7 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = None
     due_at: Optional[datetime] = None
     is_done: Optional[bool] = None
+    priority: Optional[Priority] = None
 
 
 class TaskOut(TaskBase):

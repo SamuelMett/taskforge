@@ -14,7 +14,9 @@ class Task(Base):
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
 
-    # simple fields for now (you can expand later)
+    # priority (low | med | high)
+    priority = Column(String(10), nullable=False, default="med")
+
     is_done = Column(Boolean, nullable=False, default=False)
 
     due_at = Column(DateTime(timezone=True), nullable=True)

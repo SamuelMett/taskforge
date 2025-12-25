@@ -18,7 +18,6 @@ function fmt(dt) {
   }
 }
 
-// convert ISO -> datetime-local string
 function toLocalInputValue(iso) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -31,6 +30,13 @@ function toLocalInputValue(iso) {
   return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
 }
 
+function priorityRank(p) {
+  const x = p || "med";
+  if (x === "high") return 0;
+  if (x === "med") return 1;
+  return 2; 
+}
+
 export default function Tasks() {
   const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
@@ -38,17 +44,20 @@ export default function Tasks() {
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [dueAt, setDueAt] = useState("");
+  const [priority, setPriority] = useState("med");
 
   const [error, setError] = useState("");
-  const [tab, setTab] = useState("all"); // all | active | done
+  const [tab, setTab] = useState("all"); 
   const [search, setSearch] = useState("");
 
+  const [priorityFilter, setPriorityFilter] = useState("all"); 
+  const [sort, setSort] = useState("due"); 
   const [selected, setSelected] = useState(null);
 
-  // Edit form state (right panel)
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [editDueAt, setEditDueAt] = useState("");
+  const [editPriority, setEditPriority] = useState("med");
   const [saving, setSaving] = useState(false);
 
   async function loadTasks({ keepLoading = false } = {}) {
@@ -58,7 +67,6 @@ export default function Tasks() {
       const res = await api.get("/tasks");
       setTasks(res.data);
 
-      // keep selection in sync
       if (selected) {
         const updated = res.data.find((t) => t.id === selected.id);
         setSelected(updated || null);
@@ -78,10 +86,12 @@ export default function Tasks() {
         title,
         description: desc || null,
         due_at: dueAt ? new Date(dueAt).toISOString() : null,
+        priority,
       });
       setTitle("");
       setDesc("");
       setDueAt("");
+      setPriority("med");
       await loadTasks({ keepLoading: true });
     } catch (e) {
       setError(e?.response?.data?.detail || "Failed to create task");
@@ -123,10 +133,10 @@ export default function Tasks() {
         title: editTitle,
         description: editDesc || null,
         due_at: editDueAt ? new Date(editDueAt).toISOString() : null,
+        priority: editPriority,
       });
 
       await loadTasks({ keepLoading: true });
-      // selection will refresh from loadTasks sync
     } catch (e) {
       setError(e?.response?.data?.detail || "Failed to save changes");
     } finally {
@@ -138,29 +148,58 @@ export default function Tasks() {
     setEditTitle(task?.title || "");
     setEditDesc(task?.description || "");
     setEditDueAt(task?.due_at ? toLocalInputValue(task.due_at) : "");
+    setEditPriority(task?.priority || "med");
   }
 
   useEffect(() => {
     loadTasks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Whenever selected changes, load edit fields
   useEffect(() => {
     if (selected) resetEditsFromSelected(selected);
     else {
       setEditTitle("");
       setEditDesc("");
       setEditDueAt("");
+      setEditPriority("med");
     }
   }, [selected]);
+
+  const stats = useMemo(() => {
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+    const total = tasks.length;
+    const done = tasks.filter((t) => t.is_done).length;
+
+    const overdue = tasks.filter((t) => {
+      if (t.is_done) return false;
+      if (!t.due_at) return false;
+      return new Date(t.due_at) < todayStart;
+    }).length;
+
+    const dueToday = tasks.filter((t) => {
+      if (t.is_done) return false;
+      if (!t.due_at) return false;
+      const due = new Date(t.due_at);
+      return due >= todayStart && due < tomorrowStart;
+    }).length;
+
+    return { total, done, overdue, dueToday };
+  }, [tasks]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
 
-    return tasks.filter((t) => {
+    let list = tasks.filter((t) => {
       if (tab === "active" && t.is_done) return false;
       if (tab === "done" && !t.is_done) return false;
+
+      if (priorityFilter !== "all" && (t.priority || "med") !== priorityFilter) {
+        return false;
+      }
 
       if (!q) return true;
       return (
@@ -168,7 +207,34 @@ export default function Tasks() {
         (t.description || "").toLowerCase().includes(q)
       );
     });
-  }, [tasks, tab, search]);
+
+    if (sort === "newest") {
+      list = [...list].sort((a, b) => {
+        const ad = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bd = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return bd - ad;
+      });
+    } else if (sort === "priority") {
+      list = [...list].sort((a, b) => {
+        const pr = priorityRank(a.priority) - priorityRank(b.priority);
+        if (pr !== 0) return pr;
+        const ad = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bd = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return bd - ad;
+      });
+    } else {
+      list = [...list].sort((a, b) => {
+        const aHas = !!a.due_at;
+        const bHas = !!b.due_at;
+        if (aHas && !bHas) return -1;
+        if (!aHas && bHas) return 1;
+        if (!aHas && !bHas) return 0;
+        return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
+      });
+    }
+
+    return list;
+  }, [tasks, tab, search, priorityFilter, sort]);
 
   const grouped = useMemo(() => {
     const now = new Date();
@@ -197,15 +263,32 @@ export default function Tasks() {
     today.sort(byDueAsc);
     upcoming.sort(byDueAsc);
 
+    if (sort === "priority") {
+      const byPriority = (a, b) => priorityRank(a.priority) - priorityRank(b.priority);
+      overdue.sort(byPriority);
+      today.sort(byPriority);
+      upcoming.sort(byPriority);
+      noDue.sort(byPriority);
+    }
+
     return { overdue, today, upcoming, noDue };
-  }, [filtered]);
+  }, [filtered, sort]);
+
+  const hasAnyFiltered =
+    grouped.overdue.length +
+      grouped.today.length +
+      grouped.upcoming.length +
+      grouped.noDue.length >
+    0;
 
   const rightPanel = (
     <div className="space-y-4">
       <div>
         <h3 className="text-sm font-semibold text-zinc-200">Task details</h3>
         <p className="mt-1 text-xs text-zinc-400">
-          {selected ? "Edit and manage the selected task." : "Select a task to preview."}
+          {selected
+            ? "Edit and manage the selected task."
+            : "Select a task to preview."}
         </p>
       </div>
 
@@ -237,6 +320,20 @@ export default function Tasks() {
                 rows={4}
                 disabled={saving}
               />
+            </div>
+
+            <div>
+              <label className="text-sm text-zinc-300">Priority</label>
+              <select
+                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
+                value={editPriority}
+                onChange={(e) => setEditPriority(e.target.value)}
+                disabled={saving}
+              >
+                <option value="high">High</option>
+                <option value="med">Med</option>
+                <option value="low">Low</option>
+              </select>
             </div>
 
             <div>
@@ -297,6 +394,16 @@ export default function Tasks() {
                 </span>
               </div>
               <div>
+                Priority:{" "}
+                <span className="text-zinc-200">
+                  {selected.priority === "high"
+                    ? "High"
+                    : selected.priority === "low"
+                    ? "Low"
+                    : "Med"}
+                </span>
+              </div>
+              <div>
                 Due:{" "}
                 <span className="text-zinc-200">
                   {selected.due_at ? fmt(selected.due_at) : "No due date"}
@@ -313,15 +420,19 @@ export default function Tasks() {
         <div className="mt-3 grid gap-2 text-sm">
           <div className="flex items-center justify-between text-zinc-300">
             <span>Total</span>
-            <span className="text-zinc-100">{tasks.length}</span>
+            <span className="text-zinc-100">{stats.total}</span>
           </div>
           <div className="flex items-center justify-between text-zinc-300">
             <span>Completed</span>
-            <span className="text-zinc-100">{tasks.filter((t) => t.is_done).length}</span>
+            <span className="text-zinc-100">{stats.done}</span>
           </div>
           <div className="flex items-center justify-between text-zinc-300">
-            <span>Remaining</span>
-            <span className="text-zinc-100">{tasks.filter((t) => !t.is_done).length}</span>
+            <span>Overdue</span>
+            <span className="text-zinc-100">{stats.overdue}</span>
+          </div>
+          <div className="flex items-center justify-between text-zinc-300">
+            <span>Due today</span>
+            <span className="text-zinc-100">{stats.dueToday}</span>
           </div>
         </div>
       </div>
@@ -357,6 +468,38 @@ export default function Tasks() {
             ))}
           </div>
         </div>
+
+        {/* Filters row */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <select
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value)}
+            className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
+          >
+            <option value="all">All priorities</option>
+            <option value="high">High</option>
+            <option value="med">Med</option>
+            <option value="low">Low</option>
+          </select>
+
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
+          >
+            <option value="due">Sort: Due soon</option>
+            <option value="newest">Sort: Newest</option>
+            <option value="priority">Sort: Priority</option>
+          </select>
+
+          <button
+            type="button"
+            onClick={() => loadTasks({ keepLoading: true })}
+            className="ml-auto rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm hover:bg-zinc-800"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -370,6 +513,10 @@ export default function Tasks() {
       ) : tasks.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/20 p-6 text-sm text-zinc-400">
           No tasks yet. Create one to get started.
+        </div>
+      ) : !hasAnyFiltered ? (
+        <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/20 p-6 text-sm text-zinc-400">
+          No tasks match your filters/search.
         </div>
       ) : null}
 
@@ -402,6 +549,19 @@ export default function Tasks() {
             </div>
 
             <div>
+              <label className="text-sm text-zinc-300">Priority</label>
+              <select
+                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+              >
+                <option value="high">High</option>
+                <option value="med">Med</option>
+                <option value="low">Low</option>
+              </select>
+            </div>
+
+            <div>
               <label className="text-sm text-zinc-300">Due date</label>
               <input
                 type="datetime-local"
@@ -413,14 +573,6 @@ export default function Tasks() {
 
             <button className="w-full rounded-xl bg-indigo-600 py-2 font-medium hover:bg-indigo-500">
               Add task
-            </button>
-
-            <button
-              type="button"
-              onClick={() => loadTasks({ keepLoading: true })}
-              className="w-full rounded-xl border border-zinc-800 bg-zinc-900 py-2 text-sm hover:bg-zinc-800"
-            >
-              Refresh
             </button>
           </form>
         </div>
