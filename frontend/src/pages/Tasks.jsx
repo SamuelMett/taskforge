@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import Layout from "../components/Layout";
 import Section from "../components/Section";
 import TaskCard from "../components/TaskCard";
+import { useToast } from "../components/ToastProvider";
 
 function startOfDay(d) {
   const x = new Date(d);
@@ -34,10 +35,33 @@ function priorityRank(p) {
   const x = p || "med";
   if (x === "high") return 0;
   if (x === "med") return 1;
-  return 2; 
+  return 2;
+}
+
+function SkeletonCard() {
+  return (
+    <div className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
+      <div className="h-4 w-2/3 rounded bg-zinc-800/60" />
+      <div className="mt-3 h-3 w-full rounded bg-zinc-800/50" />
+      <div className="mt-2 h-3 w-5/6 rounded bg-zinc-800/40" />
+      <div className="mt-3 h-3 w-1/2 rounded bg-zinc-800/30" />
+    </div>
+  );
+}
+
+function openNativePicker(inputEl) {
+  if (!inputEl) return;
+  if (typeof inputEl.showPicker === "function") {
+    inputEl.showPicker();
+    return;
+  }
+  inputEl.focus();
+  inputEl.click?.();
 }
 
 export default function Tasks() {
+  const toast = useToast();
+
   const [tasks, setTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
 
@@ -47,20 +71,25 @@ export default function Tasks() {
   const [priority, setPriority] = useState("med");
 
   const [error, setError] = useState("");
-  const [tab, setTab] = useState("all"); 
+  const [tab, setTab] = useState("all");
   const [search, setSearch] = useState("");
 
-  const [priorityFilter, setPriorityFilter] = useState("all"); 
-  const [sort, setSort] = useState("due"); 
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [sort, setSort] = useState("due");
   const [selected, setSelected] = useState(null);
 
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [editDueAt, setEditDueAt] = useState("");
   const [editPriority, setEditPriority] = useState("med");
-  const [saving, setSaving] = useState(false);
 
-  async function loadTasks({ keepLoading = false } = {}) {
+  const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const dueRef = useRef(null);
+  const editDueRef = useRef(null);
+
+  async function loadTasks({ keepLoading = false, silent = false } = {}) {
     if (!keepLoading) setLoadingTasks(true);
     setError("");
     try {
@@ -71,8 +100,12 @@ export default function Tasks() {
         const updated = res.data.find((t) => t.id === selected.id);
         setSelected(updated || null);
       }
+
+      if (!silent) toast.info("Tasks refreshed");
     } catch (e) {
-      setError(e?.response?.data?.detail || "Failed to load tasks");
+      const msg = e?.response?.data?.detail || "Failed to load tasks";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoadingTasks(false);
     }
@@ -81,6 +114,8 @@ export default function Tasks() {
   async function createTask(e) {
     e.preventDefault();
     setError("");
+    setCreating(true);
+
     try {
       await api.post("/tasks", {
         title,
@@ -88,23 +123,49 @@ export default function Tasks() {
         due_at: dueAt ? new Date(dueAt).toISOString() : null,
         priority,
       });
+
       setTitle("");
       setDesc("");
       setDueAt("");
       setPriority("med");
-      await loadTasks({ keepLoading: true });
+
+      toast.success("Task created");
+      await loadTasks({ keepLoading: true, silent: true });
     } catch (e) {
-      setError(e?.response?.data?.detail || "Failed to create task");
+      const msg = e?.response?.data?.detail || "Failed to create task";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setCreating(false);
     }
   }
 
   async function toggleDone(task) {
     setError("");
+
+    const prevTasks = tasks;
+    const prevSelected = selected;
+
+    const next = prevTasks.map((t) =>
+      t.id === task.id ? { ...t, is_done: !t.is_done } : t
+    );
+    setTasks(next);
+
+    if (prevSelected?.id === task.id) {
+      setSelected({ ...prevSelected, is_done: !prevSelected.is_done });
+    }
+
     try {
       await api.patch(`/tasks/${task.id}`, { is_done: !task.is_done });
-      await loadTasks({ keepLoading: true });
+      toast.success(task.is_done ? "Marked active" : "Marked done");
+      await loadTasks({ keepLoading: true, silent: true });
     } catch (e) {
-      setError(e?.response?.data?.detail || "Failed to update task");
+      const msg = e?.response?.data?.detail || "Failed to update task";
+      setError(msg);
+      toast.error(msg);
+
+      setTasks(prevTasks);
+      setSelected(prevSelected);
     }
   }
 
@@ -117,9 +178,12 @@ export default function Tasks() {
     try {
       await api.delete(`/tasks/${task.id}`);
       if (selected?.id === task.id) setSelected(null);
-      await loadTasks({ keepLoading: true });
+      toast.success("Task deleted");
+      await loadTasks({ keepLoading: true, silent: true });
     } catch (e) {
-      setError(e?.response?.data?.detail || "Failed to delete task");
+      const msg = e?.response?.data?.detail || "Failed to delete task";
+      setError(msg);
+      toast.error(msg);
     }
   }
 
@@ -136,9 +200,12 @@ export default function Tasks() {
         priority: editPriority,
       });
 
-      await loadTasks({ keepLoading: true });
+      toast.success("Changes saved");
+      await loadTasks({ keepLoading: true, silent: true });
     } catch (e) {
-      setError(e?.response?.data?.detail || "Failed to save changes");
+      const msg = e?.response?.data?.detail || "Failed to save changes";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -152,7 +219,19 @@ export default function Tasks() {
   }
 
   useEffect(() => {
-    loadTasks();
+    (async () => {
+      setLoadingTasks(true);
+      try {
+        const res = await api.get("/tasks");
+        setTasks(res.data);
+      } catch (e) {
+        const msg = e?.response?.data?.detail || "Failed to load tasks";
+        setError(msg);
+        toast.error(msg);
+      } finally {
+        setLoadingTasks(false);
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -275,20 +354,14 @@ export default function Tasks() {
   }, [filtered, sort]);
 
   const hasAnyFiltered =
-    grouped.overdue.length +
-      grouped.today.length +
-      grouped.upcoming.length +
-      grouped.noDue.length >
-    0;
+    grouped.overdue.length + grouped.today.length + grouped.upcoming.length + grouped.noDue.length > 0;
 
   const rightPanel = (
     <div className="space-y-4">
       <div>
         <h3 className="text-sm font-semibold text-zinc-200">Task details</h3>
         <p className="mt-1 text-xs text-zinc-400">
-          {selected
-            ? "Edit and manage the selected task."
-            : "Select a task to preview."}
+          {selected ? "Edit and manage the selected task." : "Select a task to preview."}
         </p>
       </div>
 
@@ -336,18 +409,30 @@ export default function Tasks() {
               </select>
             </div>
 
+            {/*  */}
             <div>
               <label className="text-sm text-zinc-300">Due date</label>
-              <input
-                type="datetime-local"
-                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
-                value={editDueAt}
-                onChange={(e) => setEditDueAt(e.target.value)}
-                disabled={saving}
-              />
-              <div className="mt-1 text-xs text-zinc-500">
-                Leave blank for “No due date”.
+              <div className="relative mt-1">
+                <input
+                  ref={editDueRef}
+                  type="datetime-local"
+                  step="60"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 pr-24 outline-none focus:border-indigo-500"
+                  value={editDueAt}
+                  onChange={(e) => setEditDueAt(e.target.value)}
+                  disabled={saving}
+                />
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => openNativePicker(editDueRef.current)}
+                  disabled={saving}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-60"
+                >
+                  Pick
+                </button>
               </div>
+              <div className="mt-1 text-xs text-zinc-500">Leave blank for “No due date”.</div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-2">
@@ -388,33 +473,22 @@ export default function Tasks() {
 
             <div className="mt-3 space-y-1 text-xs text-zinc-400">
               <div>
-                Status:{" "}
-                <span className="text-zinc-200">
-                  {selected.is_done ? "Done" : "Active"}
-                </span>
+                Status: <span className="text-zinc-200">{selected.is_done ? "Done" : "Active"}</span>
               </div>
               <div>
                 Priority:{" "}
                 <span className="text-zinc-200">
-                  {selected.priority === "high"
-                    ? "High"
-                    : selected.priority === "low"
-                    ? "Low"
-                    : "Med"}
+                  {selected.priority === "high" ? "High" : selected.priority === "low" ? "Low" : "Med"}
                 </span>
               </div>
               <div>
-                Due:{" "}
-                <span className="text-zinc-200">
-                  {selected.due_at ? fmt(selected.due_at) : "No due date"}
-                </span>
+                Due: <span className="text-zinc-200">{selected.due_at ? fmt(selected.due_at) : "No due date"}</span>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Insights */}
       <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4">
         <div className="text-xs font-semibold text-zinc-300">Insights</div>
         <div className="mt-3 grid gap-2 text-sm">
@@ -441,14 +515,11 @@ export default function Tasks() {
 
   return (
     <Layout search={search} setSearch={setSearch} rightPanel={rightPanel}>
-      {/* Header */}
       <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/20 p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold">Tasks</h1>
-            <p className="mt-1 text-sm text-zinc-400">
-              Today, upcoming, and what’s overdue.
-            </p>
+            <p className="mt-1 text-sm text-zinc-400">Today, upcoming, and what’s overdue.</p>
           </div>
 
           <div className="flex gap-2">
@@ -469,7 +540,6 @@ export default function Tasks() {
           </div>
         </div>
 
-        {/* Filters row */}
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <select
             value={priorityFilter}
@@ -494,7 +564,7 @@ export default function Tasks() {
 
           <button
             type="button"
-            onClick={() => loadTasks({ keepLoading: true })}
+            onClick={() => loadTasks({ keepLoading: true, silent: false })}
             className="ml-auto rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm hover:bg-zinc-800"
           >
             Refresh
@@ -509,7 +579,28 @@ export default function Tasks() {
       )}
 
       {loadingTasks ? (
-        <div className="mt-8 text-sm text-zinc-400">Loading tasks…</div>
+        <div className="mt-8 grid gap-6 md:grid-cols-2">
+          <div className="space-y-3">
+            <div className="h-4 w-24 rounded bg-zinc-800/60" />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+          <div className="space-y-3">
+            <div className="h-4 w-24 rounded bg-zinc-800/60" />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+          <div className="space-y-3">
+            <div className="h-4 w-24 rounded bg-zinc-800/60" />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+          <div className="space-y-3">
+            <div className="h-4 w-24 rounded bg-zinc-800/60" />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        </div>
       ) : tasks.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/20 p-6 text-sm text-zinc-400">
           No tasks yet. Create one to get started.
@@ -521,7 +612,6 @@ export default function Tasks() {
       ) : null}
 
       <div className="mt-8 grid gap-6 xl:grid-cols-3">
-        {/* Create */}
         <div className="xl:col-span-1 rounded-2xl border border-zinc-900 bg-zinc-900/20 p-6">
           <h2 className="text-lg font-semibold">Create task</h2>
 
@@ -534,6 +624,7 @@ export default function Tasks() {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Type your task title..."
                 required
+                disabled={creating}
               />
             </div>
 
@@ -545,6 +636,7 @@ export default function Tasks() {
                 onChange={(e) => setDesc(e.target.value)}
                 placeholder="Optional details…"
                 rows={4}
+                disabled={creating}
               />
             </div>
 
@@ -554,6 +646,7 @@ export default function Tasks() {
                 className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
+                disabled={creating}
               >
                 <option value="high">High</option>
                 <option value="med">Med</option>
@@ -561,18 +654,39 @@ export default function Tasks() {
               </select>
             </div>
 
+            {/*  */}
             <div>
               <label className="text-sm text-zinc-300">Due date</label>
-              <input
-                type="datetime-local"
-                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
-                value={dueAt}
-                onChange={(e) => setDueAt(e.target.value)}
-              />
+              <div className="relative mt-1">
+                <input
+                  ref={dueRef}
+                  type="datetime-local"
+                  step="60"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 pr-24 outline-none focus:border-indigo-500"
+                  value={dueAt}
+                  onChange={(e) => setDueAt(e.target.value)}
+                  disabled={creating}
+                />
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => openNativePicker(dueRef.current)}
+                  disabled={creating}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-60"
+                >
+                  Pick
+                </button>
+              </div>
+              <div className="mt-1 text-xs text-zinc-500">
+                Click <span className="text-zinc-300">Pick</span> to open the date/time selector.
+              </div>
             </div>
 
-            <button className="w-full rounded-xl bg-indigo-600 py-2 font-medium hover:bg-indigo-500">
-              Add task
+            <button
+              disabled={creating || !title.trim()}
+              className="w-full rounded-xl bg-indigo-600 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
+            >
+              {creating ? "Adding..." : "Add task"}
             </button>
           </form>
         </div>
