@@ -87,7 +87,7 @@ export function ToastProvider({ children }) {
     <ToastCtx.Provider value={api}>
       {children}
 
-      {/* Toast container */}
+      {/*  */}
       <div className="pointer-events-none fixed bottom-4 right-4 z-[9999] w-[360px] space-y-2">
         {toasts.map((t) => (
           <div key={t.id} className="pointer-events-auto">
@@ -104,3 +104,5 @@ export function useToast() {
   if (!ctx) throw new Error("useToast must be used inside <ToastProvider />");
   return ctx;
 }
+
+export default ToastProvider;

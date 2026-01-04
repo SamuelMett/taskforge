@@ -40,11 +40,11 @@ function priorityRank(p) {
 
 function SkeletonCard() {
   return (
-    <div className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
-      <div className="h-4 w-2/3 rounded bg-zinc-800/60" />
-      <div className="mt-3 h-3 w-full rounded bg-zinc-800/50" />
-      <div className="mt-2 h-3 w-5/6 rounded bg-zinc-800/40" />
-      <div className="mt-3 h-3 w-1/2 rounded bg-zinc-800/30" />
+    <div className="w-full rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950/40">
+      <div className="h-4 w-2/3 rounded bg-zinc-200 dark:bg-zinc-800/60" />
+      <div className="mt-3 h-3 w-full rounded bg-zinc-200/80 dark:bg-zinc-800/50" />
+      <div className="mt-2 h-3 w-5/6 rounded bg-zinc-200/70 dark:bg-zinc-800/40" />
+      <div className="mt-3 h-3 w-1/2 rounded bg-zinc-200/60 dark:bg-zinc-800/30" />
     </div>
   );
 }
@@ -58,6 +58,13 @@ function openNativePicker(inputEl) {
   inputEl.focus();
   inputEl.click?.();
 }
+
+const inputBase =
+  "mt-1 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500";
+const inputLight =
+  "border-zinc-200 bg-white text-zinc-900 placeholder:text-zinc-400";
+const inputDark =
+  "dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500";
 
 export default function Tasks() {
   const toast = useToast();
@@ -232,6 +239,7 @@ export default function Tasks() {
         setLoadingTasks(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -343,7 +351,8 @@ export default function Tasks() {
     upcoming.sort(byDueAsc);
 
     if (sort === "priority") {
-      const byPriority = (a, b) => priorityRank(a.priority) - priorityRank(b.priority);
+      const byPriority = (a, b) =>
+        priorityRank(a.priority) - priorityRank(b.priority);
       overdue.sort(byPriority);
       today.sort(byPriority);
       upcoming.sort(byPriority);
@@ -354,30 +363,42 @@ export default function Tasks() {
   }, [filtered, sort]);
 
   const hasAnyFiltered =
-    grouped.overdue.length + grouped.today.length + grouped.upcoming.length + grouped.noDue.length > 0;
+    grouped.overdue.length +
+      grouped.today.length +
+      grouped.upcoming.length +
+      grouped.noDue.length >
+    0;
 
   const rightPanel = (
     <div className="space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-zinc-200">Task details</h3>
-        <p className="mt-1 text-xs text-zinc-400">
-          {selected ? "Edit and manage the selected task." : "Select a task to preview."}
+        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-200">
+          Task details
+        </h3>
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          {selected
+            ? "Edit and manage the selected task."
+            : "Select a task to preview."}
         </p>
       </div>
 
       {!selected ? (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4 text-sm text-zinc-400">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-4 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950/30 dark:text-zinc-400">
           Click a task card to preview + edit it here.
         </div>
       ) : (
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 p-4">
-          <div className="text-xs font-semibold text-zinc-400">Editing</div>
+        <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950/40">
+          <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+            Editing
+          </div>
 
           <div className="mt-4 space-y-3">
             <div>
-              <label className="text-sm text-zinc-300">Title</label>
+              <label className="text-sm text-zinc-700 dark:text-zinc-300">
+                Title
+              </label>
               <input
-                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
+                className={`${inputBase} ${inputLight} ${inputDark}`}
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 disabled={saving}
@@ -385,9 +406,11 @@ export default function Tasks() {
             </div>
 
             <div>
-              <label className="text-sm text-zinc-300">Description</label>
+              <label className="text-sm text-zinc-700 dark:text-zinc-300">
+                Description
+              </label>
               <textarea
-                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
+                className={`${inputBase} ${inputLight} ${inputDark}`}
                 value={editDesc}
                 onChange={(e) => setEditDesc(e.target.value)}
                 rows={4}
@@ -396,9 +419,11 @@ export default function Tasks() {
             </div>
 
             <div>
-              <label className="text-sm text-zinc-300">Priority</label>
+              <label className="text-sm text-zinc-700 dark:text-zinc-300">
+                Priority
+              </label>
               <select
-                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
+                className={`${inputBase} ${inputLight} ${inputDark}`}
                 value={editPriority}
                 onChange={(e) => setEditPriority(e.target.value)}
                 disabled={saving}
@@ -409,15 +434,20 @@ export default function Tasks() {
               </select>
             </div>
 
-            {/*  */}
             <div>
-              <label className="text-sm text-zinc-300">Due date</label>
+              <label className="text-sm text-zinc-700 dark:text-zinc-300">
+                Due date
+              </label>
               <div className="relative mt-1">
                 <input
                   ref={editDueRef}
                   type="datetime-local"
                   step="60"
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 pr-24 outline-none focus:border-indigo-500"
+                  className={[
+                    "w-full rounded-xl border px-3 py-2 pr-24 text-sm outline-none focus:border-indigo-500",
+                    "border-zinc-200 bg-white text-zinc-900",
+                    "dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100",
+                  ].join(" ")}
                   value={editDueAt}
                   onChange={(e) => setEditDueAt(e.target.value)}
                   disabled={saving}
@@ -427,19 +457,21 @@ export default function Tasks() {
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => openNativePicker(editDueRef.current)}
                   disabled={saving}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-60"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
                   Pick
                 </button>
               </div>
-              <div className="mt-1 text-xs text-zinc-500">Leave blank for “No due date”.</div>
+              <div className="mt-1 text-xs text-zinc-500">
+                Leave blank for “No due date”.
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-2">
               <button
                 onClick={saveEdits}
                 disabled={saving || !editTitle.trim()}
-                className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium hover:bg-indigo-500 disabled:opacity-60"
+                className="rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
               >
                 {saving ? "Saving..." : "Save changes"}
               </button>
@@ -447,7 +479,7 @@ export default function Tasks() {
               <button
                 onClick={() => resetEditsFromSelected(selected)}
                 disabled={saving}
-                className="rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm hover:bg-zinc-800 disabled:opacity-60"
+                className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
               >
                 Cancel
               </button>
@@ -457,7 +489,7 @@ export default function Tasks() {
               <button
                 onClick={() => toggleDone(selected)}
                 disabled={saving}
-                className="w-full rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100 hover:bg-emerald-500/15 disabled:opacity-60"
+                className="w-full rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 hover:bg-emerald-500/15 disabled:opacity-60 dark:text-emerald-100"
               >
                 {selected.is_done ? "Mark as active" : "Mark as done"}
               </button>
@@ -465,49 +497,59 @@ export default function Tasks() {
               <button
                 onClick={() => deleteTask(selected)}
                 disabled={saving}
-                className="w-full rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-red-100 hover:bg-red-500/15 disabled:opacity-60"
+                className="w-full rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-sm text-red-700 hover:bg-red-500/15 disabled:opacity-60 dark:text-red-100"
               >
                 Delete task
               </button>
             </div>
 
-            <div className="mt-3 space-y-1 text-xs text-zinc-400">
+            <div className="mt-3 space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
               <div>
-                Status: <span className="text-zinc-200">{selected.is_done ? "Done" : "Active"}</span>
-              </div>
-              <div>
-                Priority:{" "}
-                <span className="text-zinc-200">
-                  {selected.priority === "high" ? "High" : selected.priority === "low" ? "Low" : "Med"}
+                Status:{" "}
+                <span className="text-zinc-900 dark:text-zinc-200">
+                  {selected.is_done ? "Done" : "Active"}
                 </span>
               </div>
               <div>
-                Due: <span className="text-zinc-200">{selected.due_at ? fmt(selected.due_at) : "No due date"}</span>
+                Priority:{" "}
+                <span className="text-zinc-900 dark:text-zinc-200">
+                  {selected.priority === "high"
+                    ? "High"
+                    : selected.priority === "low"
+                    ? "Low"
+                    : "Med"}
+                </span>
+              </div>
+              <div>
+                Due:{" "}
+                <span className="text-zinc-900 dark:text-zinc-200">
+                  {selected.due_at ? fmt(selected.due_at) : "No due date"}
+                </span>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      <div className="rounded-2xl border border-zinc-800 bg-zinc-950/30 p-4">
-        <div className="text-xs font-semibold text-zinc-300">Insights</div>
+      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950/30">
+        <div className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+          Insights
+        </div>
         <div className="mt-3 grid gap-2 text-sm">
-          <div className="flex items-center justify-between text-zinc-300">
-            <span>Total</span>
-            <span className="text-zinc-100">{stats.total}</span>
-          </div>
-          <div className="flex items-center justify-between text-zinc-300">
-            <span>Completed</span>
-            <span className="text-zinc-100">{stats.done}</span>
-          </div>
-          <div className="flex items-center justify-between text-zinc-300">
-            <span>Overdue</span>
-            <span className="text-zinc-100">{stats.overdue}</span>
-          </div>
-          <div className="flex items-center justify-between text-zinc-300">
-            <span>Due today</span>
-            <span className="text-zinc-100">{stats.dueToday}</span>
-          </div>
+          {[
+            ["Total", stats.total],
+            ["Completed", stats.done],
+            ["Overdue", stats.overdue],
+            ["Due today", stats.dueToday],
+          ].map(([k, v]) => (
+            <div
+              key={k}
+              className="flex items-center justify-between text-zinc-600 dark:text-zinc-300"
+            >
+              <span>{k}</span>
+              <span className="text-zinc-900 dark:text-zinc-100">{v}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -515,36 +557,49 @@ export default function Tasks() {
 
   return (
     <Layout search={search} setSearch={setSearch} rightPanel={rightPanel}>
-      <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/20 p-6">
+      {/* Header */}
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800/70 dark:bg-zinc-900/20">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold">Tasks</h1>
-            <p className="mt-1 text-sm text-zinc-400">Today, upcoming, and what’s overdue.</p>
+            <h1 className="text-3xl font-semibold text-zinc-900 dark:text-zinc-100">
+              Tasks
+            </h1>
+            <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              Today, upcoming, and what’s overdue.
+            </p>
           </div>
 
           <div className="flex gap-2">
-            {["all", "active", "done"].map((k) => (
-              <button
-                key={k}
-                onClick={() => setTab(k)}
-                className={[
-                  "rounded-xl px-4 py-2 text-sm border",
-                  tab === k
-                    ? "bg-indigo-600/20 border-indigo-500/40 text-indigo-100"
-                    : "bg-zinc-900/40 border-zinc-800 text-zinc-300 hover:bg-zinc-900",
-                ].join(" ")}
-              >
-                {k === "all" ? "All" : k === "active" ? "Active" : "Done"}
-              </button>
-            ))}
+            {["all", "active", "done"].map((k) => {
+              const active = tab === k;
+              return (
+                <button
+                  key={k}
+                  onClick={() => setTab(k)}
+                  className={[
+                    "rounded-xl px-4 py-2 text-sm border transition",
+                    active
+                      ? "bg-indigo-600/10 border-indigo-500/30 text-indigo-700 dark:bg-indigo-600/20 dark:border-indigo-500/40 dark:text-indigo-100"
+                      : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:bg-zinc-900/40 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900",
+                  ].join(" ")}
+                >
+                  {k === "all" ? "All" : k === "active" ? "Active" : "Done"}
+                </button>
+              );
+            })}
           </div>
         </div>
 
+        {/* Filters row */}
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
+            className={[
+              "rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500",
+              "border-zinc-200 bg-white text-zinc-900",
+              "dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200",
+            ].join(" ")}
           >
             <option value="all">All priorities</option>
             <option value="high">High</option>
@@ -555,7 +610,11 @@ export default function Tasks() {
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value)}
-            className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500"
+            className={[
+              "rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500",
+              "border-zinc-200 bg-white text-zinc-900",
+              "dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200",
+            ].join(" ")}
           >
             <option value="due">Sort: Due soon</option>
             <option value="newest">Sort: Newest</option>
@@ -565,7 +624,7 @@ export default function Tasks() {
           <button
             type="button"
             onClick={() => loadTasks({ keepLoading: true, silent: false })}
-            className="ml-auto rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm hover:bg-zinc-800"
+            className="ml-auto rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
           >
             Refresh
           </button>
@@ -573,53 +632,46 @@ export default function Tasks() {
       </div>
 
       {error && (
-        <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+        <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-200">
           {error}
         </div>
       )}
 
       {loadingTasks ? (
         <div className="mt-8 grid gap-6 md:grid-cols-2">
-          <div className="space-y-3">
-            <div className="h-4 w-24 rounded bg-zinc-800/60" />
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-          <div className="space-y-3">
-            <div className="h-4 w-24 rounded bg-zinc-800/60" />
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-          <div className="space-y-3">
-            <div className="h-4 w-24 rounded bg-zinc-800/60" />
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-          <div className="space-y-3">
-            <div className="h-4 w-24 rounded bg-zinc-800/60" />
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="space-y-3">
+              <div className="h-4 w-24 rounded bg-zinc-200 dark:bg-zinc-800/60" />
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          ))}
         </div>
       ) : tasks.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/20 p-6 text-sm text-zinc-400">
+        <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/20 dark:text-zinc-400">
           No tasks yet. Create one to get started.
         </div>
       ) : !hasAnyFiltered ? (
-        <div className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-900/20 p-6 text-sm text-zinc-400">
+        <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/20 dark:text-zinc-400">
           No tasks match your filters/search.
         </div>
       ) : null}
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-1 rounded-2xl border border-zinc-900 bg-zinc-900/20 p-6">
-          <h2 className="text-lg font-semibold">Create task</h2>
+      {/* ✅ Changed xl -> 2xl so it doesn't feel cramped on laptops */}
+      <div className="mt-8 grid gap-6 2xl:grid-cols-3">
+        {/* Create */}
+        <div className="2xl:col-span-1 rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-900 dark:bg-zinc-900/20">
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            Create task
+          </h2>
 
           <form onSubmit={createTask} className="mt-5 space-y-4">
             <div>
-              <label className="text-sm text-zinc-300">Title</label>
+              <label className="text-sm text-zinc-700 dark:text-zinc-300">
+                Title
+              </label>
               <input
-                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
+                className={`${inputBase} ${inputLight} ${inputDark}`}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Type your task title..."
@@ -629,9 +681,11 @@ export default function Tasks() {
             </div>
 
             <div>
-              <label className="text-sm text-zinc-300">Description</label>
+              <label className="text-sm text-zinc-700 dark:text-zinc-300">
+                Description
+              </label>
               <textarea
-                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
+                className={`${inputBase} ${inputLight} ${inputDark}`}
                 value={desc}
                 onChange={(e) => setDesc(e.target.value)}
                 placeholder="Optional details…"
@@ -641,9 +695,11 @@ export default function Tasks() {
             </div>
 
             <div>
-              <label className="text-sm text-zinc-300">Priority</label>
+              <label className="text-sm text-zinc-700 dark:text-zinc-300">
+                Priority
+              </label>
               <select
-                className="mt-1 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
+                className={`${inputBase} ${inputLight} ${inputDark}`}
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
                 disabled={creating}
@@ -654,15 +710,20 @@ export default function Tasks() {
               </select>
             </div>
 
-            {/*  */}
             <div>
-              <label className="text-sm text-zinc-300">Due date</label>
+              <label className="text-sm text-zinc-700 dark:text-zinc-300">
+                Due date
+              </label>
               <div className="relative mt-1">
                 <input
                   ref={dueRef}
                   type="datetime-local"
                   step="60"
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 pr-24 outline-none focus:border-indigo-500"
+                  className={[
+                    "w-full rounded-xl border px-3 py-2 pr-24 text-sm outline-none focus:border-indigo-500",
+                    "border-zinc-200 bg-white text-zinc-900",
+                    "dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100",
+                  ].join(" ")}
                   value={dueAt}
                   onChange={(e) => setDueAt(e.target.value)}
                   disabled={creating}
@@ -672,29 +733,33 @@ export default function Tasks() {
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => openNativePicker(dueRef.current)}
                   disabled={creating}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-200 hover:bg-zinc-800 disabled:opacity-60"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
                   Pick
                 </button>
               </div>
               <div className="mt-1 text-xs text-zinc-500">
-                Click <span className="text-zinc-300">Pick</span> to open the date/time selector.
+                Click <span className="text-zinc-700 dark:text-zinc-300">Pick</span>{" "}
+                to open the date/time selector.
               </div>
             </div>
 
             <button
               disabled={creating || !title.trim()}
-              className="w-full rounded-xl bg-indigo-600 py-2 font-medium hover:bg-indigo-500 disabled:opacity-60"
+              className="w-full rounded-xl bg-indigo-600 py-2 font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
             >
               {creating ? "Adding..." : "Add task"}
             </button>
           </form>
         </div>
 
-        <div className="xl:col-span-2 grid gap-6 md:grid-cols-2">
+        {/* Lists */}
+        <div className="2xl:col-span-2 grid gap-6 md:grid-cols-2">
           <Section title="Overdue" count={grouped.overdue.length}>
             {grouped.overdue.length === 0 ? (
-              <div className="text-sm text-zinc-400">Nothing overdue 🎉</div>
+              <div className="text-sm text-zinc-600 dark:text-zinc-400">
+                Nothing overdue 🎉
+              </div>
             ) : (
               grouped.overdue.map((t) => (
                 <TaskCard
@@ -711,7 +776,9 @@ export default function Tasks() {
 
           <Section title="Today" count={grouped.today.length}>
             {grouped.today.length === 0 ? (
-              <div className="text-sm text-zinc-400">No tasks due today.</div>
+              <div className="text-sm text-zinc-600 dark:text-zinc-400">
+                No tasks due today.
+              </div>
             ) : (
               grouped.today.map((t) => (
                 <TaskCard
@@ -728,7 +795,9 @@ export default function Tasks() {
 
           <Section title="Upcoming" count={grouped.upcoming.length}>
             {grouped.upcoming.length === 0 ? (
-              <div className="text-sm text-zinc-400">Nothing coming up.</div>
+              <div className="text-sm text-zinc-600 dark:text-zinc-400">
+                Nothing coming up.
+              </div>
             ) : (
               grouped.upcoming.map((t) => (
                 <TaskCard
@@ -745,7 +814,9 @@ export default function Tasks() {
 
           <Section title="No due date" count={grouped.noDue.length}>
             {grouped.noDue.length === 0 ? (
-              <div className="text-sm text-zinc-400">No undated tasks.</div>
+              <div className="text-sm text-zinc-600 dark:text-zinc-400">
+                No undated tasks.
+              </div>
             ) : (
               grouped.noDue.map((t) => (
                 <TaskCard
