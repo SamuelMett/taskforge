@@ -143,3 +143,10 @@ __pycache__/
 *.py[cod]
 .venv/
 env/
+
+# VS Code editor settings
+.vscode/
+
+# Local SQLite database
+*.db
+backend/*.db
