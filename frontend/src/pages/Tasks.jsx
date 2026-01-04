@@ -376,9 +376,7 @@ export default function Tasks() {
           Task details
         </h3>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          {selected
-            ? "Edit and manage the selected task."
-            : "Select a task to preview."}
+          {selected ? "Edit and manage the selected task." : "Select a task to preview."}
         </p>
       </div>
 
@@ -394,9 +392,7 @@ export default function Tasks() {
 
           <div className="mt-4 space-y-3">
             <div>
-              <label className="text-sm text-zinc-700 dark:text-zinc-300">
-                Title
-              </label>
+              <label className="text-sm text-zinc-700 dark:text-zinc-300">Title</label>
               <input
                 className={`${inputBase} ${inputLight} ${inputDark}`}
                 value={editTitle}
@@ -406,9 +402,7 @@ export default function Tasks() {
             </div>
 
             <div>
-              <label className="text-sm text-zinc-700 dark:text-zinc-300">
-                Description
-              </label>
+              <label className="text-sm text-zinc-700 dark:text-zinc-300">Description</label>
               <textarea
                 className={`${inputBase} ${inputLight} ${inputDark}`}
                 value={editDesc}
@@ -419,9 +413,7 @@ export default function Tasks() {
             </div>
 
             <div>
-              <label className="text-sm text-zinc-700 dark:text-zinc-300">
-                Priority
-              </label>
+              <label className="text-sm text-zinc-700 dark:text-zinc-300">Priority</label>
               <select
                 className={`${inputBase} ${inputLight} ${inputDark}`}
                 value={editPriority}
@@ -435,16 +427,15 @@ export default function Tasks() {
             </div>
 
             <div>
-              <label className="text-sm text-zinc-700 dark:text-zinc-300">
-                Due date
-              </label>
+              <label className="text-sm text-zinc-700 dark:text-zinc-300">Due date</label>
               <div className="relative mt-1">
                 <input
                   ref={editDueRef}
                   type="datetime-local"
                   step="60"
                   className={[
-                    "w-full rounded-xl border px-3 py-2 pr-24 text-sm outline-none focus:border-indigo-500",
+                    // ✅ FIX: more right padding so AM/PM doesn't clip
+                    "w-full rounded-xl border px-3 py-2 pr-32 text-sm outline-none focus:border-indigo-500",
                     "border-zinc-200 bg-white text-zinc-900",
                     "dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100",
                   ].join(" ")}
@@ -457,14 +448,12 @@ export default function Tasks() {
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => openNativePicker(editDueRef.current)}
                   disabled={saving}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
                   Pick
                 </button>
               </div>
-              <div className="mt-1 text-xs text-zinc-500">
-                Leave blank for “No due date”.
-              </div>
+              <div className="mt-1 text-xs text-zinc-500">Leave blank for “No due date”.</div>
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-2">
@@ -657,19 +646,17 @@ export default function Tasks() {
         </div>
       ) : null}
 
-      {/* ✅ Changed xl -> 2xl so it doesn't feel cramped on laptops */}
-      <div className="mt-8 grid gap-6 2xl:grid-cols-3">
+      {/* ✅ Key layout change: at xl use 2 columns (Create + Lists), at 2xl become 3 columns */}
+      <div className="mt-8 grid gap-6 xl:grid-cols-[380px_1fr] 2xl:grid-cols-3">
         {/* Create */}
-        <div className="2xl:col-span-1 rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-900 dark:bg-zinc-900/20">
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-900 dark:bg-zinc-900/20">
           <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
             Create task
           </h2>
 
           <form onSubmit={createTask} className="mt-5 space-y-4">
             <div>
-              <label className="text-sm text-zinc-700 dark:text-zinc-300">
-                Title
-              </label>
+              <label className="text-sm text-zinc-700 dark:text-zinc-300">Title</label>
               <input
                 className={`${inputBase} ${inputLight} ${inputDark}`}
                 value={title}
@@ -720,7 +707,8 @@ export default function Tasks() {
                   type="datetime-local"
                   step="60"
                   className={[
-                    "w-full rounded-xl border px-3 py-2 pr-24 text-sm outline-none focus:border-indigo-500",
+                    // ✅ FIX: more right padding so AM/PM doesn't clip
+                    "w-full rounded-xl border px-3 py-2 pr-32 text-sm outline-none focus:border-indigo-500",
                     "border-zinc-200 bg-white text-zinc-900",
                     "dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100",
                   ].join(" ")}
@@ -733,7 +721,7 @@ export default function Tasks() {
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => openNativePicker(dueRef.current)}
                   disabled={creating}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white px-3 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
                   Pick
                 </button>
@@ -754,7 +742,7 @@ export default function Tasks() {
         </div>
 
         {/* Lists */}
-        <div className="2xl:col-span-2 grid gap-6 md:grid-cols-2">
+        <div className="2xl:col-span-2 grid gap-6 xl:grid-cols-1 2xl:grid-cols-2">
           <Section title="Overdue" count={grouped.overdue.length}>
             {grouped.overdue.length === 0 ? (
               <div className="text-sm text-zinc-600 dark:text-zinc-400">
