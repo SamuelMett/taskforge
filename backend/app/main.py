@@ -1,33 +1,20 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes.auth import router as auth_router
-from app.api.routes.tasks import router as tasks_router
+app = FastAPI()
 
-# ✅ add these imports
-from app.db.session import engine
-from app.db.base_class import Base
+raw = os.getenv("CORS_ORIGINS", "")
+origins = [o.strip() for o in raw.split(",") if o.strip()]
 
-app = FastAPI(title="TaskForge API")
+# optional: allow localhost during dev
+if os.getenv("ENV", "").lower() != "prod":
+    origins += ["http://localhost:5173", "http://127.0.0.1:5173"]
 
-# ✅ create tables on startup (dev-friendly; later you’ll switch to Alembic)
-Base.metadata.create_all(bind=engine)
-
-# CORS (allow Vite dev server)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-app.include_router(auth_router, prefix="/auth", tags=["auth"])
-app.include_router(tasks_router, prefix="/tasks", tags=["tasks"])
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
