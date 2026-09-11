@@ -3,6 +3,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import auth, tasks
+from app.db.base import Base
+from app.db.session import engine
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
