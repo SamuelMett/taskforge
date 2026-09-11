@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.user import User
+from app.models.admin import AdminUser
 
 bearer_scheme = HTTPBearer()
 
@@ -35,4 +36,14 @@ def get_current_user(
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
+    return user
+
+
+def get_current_admin(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> User:
+    is_admin = db.query(AdminUser).filter(AdminUser.user_id == user.id).first() is not None
+    if not is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return user

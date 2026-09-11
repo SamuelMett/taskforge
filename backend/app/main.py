@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.api.routes import auth, tasks
+from app.api.routes import admin, auth, tasks
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.db.base import Base
@@ -43,3 +43,4 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
+app.include_router(admin.router, prefix="/admin", tags=["admin"])

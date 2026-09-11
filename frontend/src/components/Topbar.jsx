@@ -106,6 +106,16 @@ export default function Topbar({ search, setSearch }) {
               </button>
 
               <button
+                onClick={() => {
+                  setOpen(false);
+                  nav("/admin");
+                }}
+                className="w-full rounded-xl px-3 py-2 text-left text-sm text-zinc-800 hover:bg-zinc-50 dark:text-zinc-100 dark:hover:bg-zinc-900"
+              >
+                Admin
+              </button>
+
+              <button
                 onClick={logout}
                 className="w-full rounded-xl px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 dark:text-red-200 dark:hover:bg-red-500/10"
               >
