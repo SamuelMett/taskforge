@@ -42,7 +42,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
 
     return user
 
-@router.post("/login/2fa")
+@router.post("/login-2fa")
 def login_2fa(payload: Login2FARequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.password_hash):
