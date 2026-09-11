@@ -78,7 +78,7 @@ export default function Tasks() {
   const [priority, setPriority] = useState("med");
 
   const [error, setError] = useState("");
-  const [tab, setTab] = useState("all");
+  const [tab, setTab] = useState("tasks");
   const [search, setSearch] = useState("");
 
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -281,8 +281,8 @@ export default function Tasks() {
     const q = search.trim().toLowerCase();
 
     let list = tasks.filter((t) => {
-      if (tab === "active" && t.is_done) return false;
-      if (tab === "done" && !t.is_done) return false;
+      if (tab === "tasks" && t.is_done) return false;
+      if (tab === "history" && !t.is_done) return false;
 
       if (priorityFilter !== "all" && (t.priority || "med") !== priorityFilter) {
         return false;
@@ -361,6 +361,14 @@ export default function Tasks() {
 
     return { overdue, today, upcoming, noDue };
   }, [filtered, sort]);
+
+  const historyList = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const ad = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+      const bd = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+      return bd - ad;
+    });
+  }, [filtered]);
 
   const hasAnyFiltered =
     grouped.overdue.length +
@@ -551,15 +559,17 @@ export default function Tasks() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-semibold text-zinc-900 dark:text-zinc-100">
-              Tasks
+              {tab === "history" ? "History" : "Tasks"}
             </h1>
             <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              Today, upcoming, and what’s overdue.
+              {tab === "history"
+                ? "Everything you've completed."
+                : "Today, upcoming, and what’s overdue."}
             </p>
           </div>
 
           <div className="flex gap-2">
-            {["all", "active", "done"].map((k) => {
+            {["tasks", "history"].map((k) => {
               const active = tab === k;
               return (
                 <button
@@ -572,7 +582,7 @@ export default function Tasks() {
                       : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:bg-zinc-900/40 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900",
                   ].join(" ")}
                 >
-                  {k === "all" ? "All" : k === "active" ? "Active" : "Done"}
+                  {k === "tasks" ? "Tasks" : "History"}
                 </button>
               );
             })}
@@ -642,7 +652,9 @@ export default function Tasks() {
         </div>
       ) : !hasAnyFiltered ? (
         <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-6 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/20 dark:text-zinc-400">
-          No tasks match your filters/search.
+          {tab === "history" && !search.trim() && priorityFilter === "all"
+            ? "Nothing completed yet."
+            : "No tasks match your filters/search."}
         </div>
       ) : null}
 
@@ -742,6 +754,28 @@ export default function Tasks() {
         </div>
 
         {/* Lists */}
+        {tab === "history" ? (
+          <div className="2xl:col-span-2">
+            <Section title="History" count={historyList.length}>
+              {historyList.length === 0 ? (
+                <div className="text-sm text-zinc-600 dark:text-zinc-400">
+                  Nothing completed yet.
+                </div>
+              ) : (
+                historyList.map((t) => (
+                  <TaskCard
+                    key={t.id}
+                    task={t}
+                    onToggleDone={toggleDone}
+                    onDelete={deleteTask}
+                    onSelect={setSelected}
+                    selected={selected?.id === t.id}
+                  />
+                ))
+              )}
+            </Section>
+          </div>
+        ) : (
         <div className="2xl:col-span-2 grid gap-6 xl:grid-cols-1 2xl:grid-cols-2">
           <Section title="Overdue" count={grouped.overdue.length}>
             {grouped.overdue.length === 0 ? (
@@ -819,6 +853,7 @@ export default function Tasks() {
             )}
           </Section>
         </div>
+        )}
       </div>
     </Layout>
   );
