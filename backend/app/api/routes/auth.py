@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.models.user import User
 from app.schemas.user import UserCreate, UserOut
 from app.core.security import hash_password, verify_password, create_access_token
+from app.core.limiter import limiter
 
 import base64
 import io
@@ -22,7 +23,8 @@ router = APIRouter()
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register(payload: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("10/hour")
+def register(request: Request, payload: UserCreate, db: Session = Depends(get_db)):
     # Check if email already exists
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
@@ -43,7 +45,8 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     return user
 
 @router.post("/login-2fa")
-def login_2fa(payload: Login2FARequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login_2fa(request: Request, payload: Login2FARequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
@@ -69,7 +72,8 @@ def login_2fa(payload: Login2FARequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, payload: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
@@ -129,7 +133,9 @@ def twofa_setup(
 
 
 @router.post("/2fa/confirm")
+@limiter.limit("5/minute")
 def twofa_confirm(
+    request: Request,
     code: str = Body(embed=True),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
