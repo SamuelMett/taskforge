@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Literal
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 Priority = Literal["low", "med", "high"]
 
@@ -32,3 +32,13 @@ class TaskOut(TaskBase):
     is_done: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+    @field_validator("due_at", "created_at", "updated_at", mode="before")
+    @classmethod
+    def _assume_utc(cls, v):
+        # SQLite drops tzinfo on read, so a naive datetime coming back from
+        # the DB is actually UTC — tag it as such so it serializes with an
+        # offset and browsers don't misinterpret it as local time.
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
