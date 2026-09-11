@@ -5,28 +5,25 @@ It is designed to simulate a real-world production workflow, focusing on authent
 
 
 
-Features (MVP)
+Features
 
 Authentication & Security
 - User registration and login
 - JWT-based authentication
 - Two-Factor Authentication (TOTP using Authenticator apps)
 - Secure login flow with password + 2FA code
+- Rate limiting on login/2FA endpoints
 
-Projects & Tasks
-- Create and manage projects
+Tasks
 - Create tasks with:
   - Title
   - Description
   - Due date
   - Priority
   - Status (To-Do / In Progress / Done)
-- Role-based access (owner vs collaborator)
 
 Learning-Focused Design
-- Real GitHub workflow (branches → PRs → reviews → merge)
 - Modular frontend and backend architecture
-- CI checks on pull requests
 
 
 
@@ -46,10 +43,14 @@ Backend
 - JWT Authentication
 - TOTP (pyotp)
 
-DevOps
-- Docker 
-- GitHub Actions (CI)
-- Pytest
+
+Roadmap (not built yet)
+- Projects, with role-based access (owner vs collaborator)
+- Password reset / account recovery flow
+- Automated tests (Pytest)
+- CI checks on pull requests (GitHub Actions)
+- Docker
+- Real GitHub workflow (branches → PRs → reviews → merge)
 
 
 Repository Structure
