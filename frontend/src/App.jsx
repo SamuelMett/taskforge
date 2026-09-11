@@ -7,6 +7,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Tasks from "./pages/Tasks";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
+import AdminBootstrap from "./pages/AdminBootstrap";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
@@ -43,6 +44,15 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Admin />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/bootstrap"
+        element={
+          <ProtectedRoute>
+            <AdminBootstrap />
           </ProtectedRoute>
         }
       />
