@@ -3,8 +3,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import auth, tasks
+from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine
+
+if os.getenv("ENV", "").lower() == "prod" and settings.JWT_SECRET_KEY == "CHANGE_ME_IN_PROD":
+    raise RuntimeError(
+        "JWT_SECRET_KEY is still the default placeholder. "
+        "Set a real JWT_SECRET_KEY env var before running in production."
+    )
 
 Base.metadata.create_all(bind=engine)
 
