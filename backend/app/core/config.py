@@ -19,5 +19,8 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # Admin
+    ADMIN_BOOTSTRAP_SECRET: str = ""
+
 
 settings = Settings()

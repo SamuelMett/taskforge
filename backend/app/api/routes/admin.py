@@ -1,8 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import secrets
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.api.deps.auth import get_current_admin, get_current_user, get_db
+from app.core.config import settings
+from app.core.limiter import limiter
 from app.models.admin import AdminUser
 from app.models.task import Task
 from app.models.user import User
@@ -16,26 +20,85 @@ def admin_me(
     db: Session = Depends(get_db),
 ):
     is_admin = db.query(AdminUser).filter(AdminUser.user_id == user.id).first() is not None
-    admin_exists = db.query(AdminUser).first() is not None
-    return {"is_admin": is_admin, "admin_exists": admin_exists}
+    return {"is_admin": is_admin}
 
 
 @router.post("/bootstrap", status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/hour")
 def bootstrap_admin(
+    request: Request,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
+    secret: str = Body(embed=True),
 ):
     """
-    One-time self-promotion: the first authenticated user to call this
-    becomes an admin. Once any admin exists, this permanently closes.
+    Promotes the calling (authenticated) user to admin, but only if they
+    supply ADMIN_BOOTSTRAP_SECRET -- a value that only exists as an env
+    var you set yourself, never in the UI or source. There's no
+    "first person wins" fallback: without the secret, this always 403s.
     """
-    if db.query(AdminUser).first() is not None:
-        raise HTTPException(status_code=400, detail="An admin has already been set")
+    if not settings.ADMIN_BOOTSTRAP_SECRET or not secrets.compare_digest(
+        secret, settings.ADMIN_BOOTSTRAP_SECRET
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid bootstrap secret")
 
-    db.add(AdminUser(user_id=user.id))
-    db.commit()
+    already_admin = db.query(AdminUser).filter(AdminUser.user_id == user.id).first() is not None
+    if not already_admin:
+        db.add(AdminUser(user_id=user.id))
+        db.commit()
 
     return {"message": "You are now an admin", "is_admin": True}
+
+
+@router.get("/admins")
+def list_admins(
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    rows = (
+        db.query(User.id, User.email)
+        .join(AdminUser, AdminUser.user_id == User.id)
+        .order_by(User.id.asc())
+        .all()
+    )
+    return [{"id": r.id, "email": r.email} for r in rows]
+
+
+@router.post("/admins", status_code=status.HTTP_201_CREATED)
+def grant_admin(
+    email: str = Body(embed=True),
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    target = db.query(User).filter(User.email == email.strip().lower()).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="No user with that email")
+
+    exists = db.query(AdminUser).filter(AdminUser.user_id == target.id).first() is not None
+    if not exists:
+        db.add(AdminUser(user_id=target.id))
+        db.commit()
+
+    return {"message": f"{target.email} is now an admin"}
+
+
+@router.delete("/admins/{user_id}")
+def revoke_admin(
+    user_id: int,
+    admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="You can't revoke your own admin access")
+
+    row = db.query(AdminUser).filter(AdminUser.user_id == user_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="That user isn't an admin")
+
+    db.delete(row)
+    db.commit()
+
+    return {"message": "Admin access revoked"}
 
 
 @router.get("/stats")

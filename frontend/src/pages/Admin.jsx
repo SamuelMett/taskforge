@@ -9,26 +9,29 @@ export default function Admin() {
 
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [adminExists, setAdminExists] = useState(false);
-  const [claiming, setClaiming] = useState(false);
 
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
+  const [admins, setAdmins] = useState([]);
 
-  async function loadAdminStatus() {
+  const [grantEmail, setGrantEmail] = useState("");
+  const [granting, setGranting] = useState(false);
+
+  async function loadAll() {
     setLoading(true);
     try {
-      const res = await api.get("/admin/me");
-      setIsAdmin(res.data.is_admin);
-      setAdminExists(res.data.admin_exists);
+      const meRes = await api.get("/admin/me");
+      setIsAdmin(meRes.data.is_admin);
 
-      if (res.data.is_admin) {
-        const [statsRes, usersRes] = await Promise.all([
+      if (meRes.data.is_admin) {
+        const [statsRes, usersRes, adminsRes] = await Promise.all([
           api.get("/admin/stats"),
           api.get("/admin/users"),
+          api.get("/admin/admins"),
         ]);
         setStats(statsRes.data);
         setUsers(usersRes.data);
+        setAdmins(adminsRes.data);
       }
     } catch {
       // ignore
@@ -38,20 +41,31 @@ export default function Admin() {
   }
 
   useEffect(() => {
-    loadAdminStatus();
+    loadAll();
   }, []);
 
-  async function claimAdmin() {
-    setClaiming(true);
+  async function grantAdmin(e) {
+    e.preventDefault();
+    setGranting(true);
     try {
-      await api.post("/admin/bootstrap");
-      toast.success("You're now an admin");
-      loadAdminStatus();
+      await api.post("/admin/admins", { email: grantEmail.trim().toLowerCase() });
+      toast.success(`${grantEmail} is now an admin`);
+      setGrantEmail("");
+      loadAll();
     } catch (err) {
-      toast.error(err?.response?.data?.detail || "Couldn't claim admin access");
-      setAdminExists(true);
+      toast.error(err?.response?.data?.detail || "Couldn't grant admin access");
     } finally {
-      setClaiming(false);
+      setGranting(false);
+    }
+  }
+
+  async function revokeAdmin(id, email) {
+    try {
+      await api.delete(`/admin/admins/${id}`);
+      toast.success(`Revoked admin access for ${email}`);
+      loadAll();
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Couldn't revoke admin access");
     }
   }
 
@@ -71,29 +85,12 @@ export default function Admin() {
           </div>
         )}
 
-        {!loading && !isAdmin && !adminExists && (
-          <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900/30">
-            <div className="font-semibold">No admin set yet</div>
-            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              Nobody has claimed admin access on this instance. The first
-              person to claim it becomes the permanent admin.
-            </p>
-            <button
-              onClick={claimAdmin}
-              disabled={claiming}
-              className="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
-            >
-              {claiming ? "Claiming..." : "Claim admin access"}
-            </button>
-          </div>
-        )}
-
-        {!loading && !isAdmin && adminExists && (
+        {!loading && !isAdmin && (
           <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900/30">
             <div className="font-semibold">Admin access required</div>
             <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              This account isn't an admin, and admin access has already been
-              claimed by someone else.
+              This account doesn't have admin access. Ask an existing admin
+              to grant it to your email.
             </p>
           </div>
         )}
@@ -119,6 +116,47 @@ export default function Admin() {
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900/30">
+              <div className="font-semibold">Admins</div>
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                People with admin access to this dashboard.
+              </p>
+
+              <div className="mt-4 space-y-2">
+                {admins.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex items-center justify-between rounded-xl border border-zinc-100 px-3 py-2 text-sm dark:border-zinc-800"
+                  >
+                    <span>{a.email}</span>
+                    <button
+                      onClick={() => revokeAdmin(a.id, a.email)}
+                      className="text-xs font-medium text-red-600 hover:text-red-500 dark:text-red-400"
+                    >
+                      Revoke
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <form onSubmit={grantAdmin} className="mt-4 flex gap-2">
+                <input
+                  value={grantEmail}
+                  onChange={(e) => setGrantEmail(e.target.value)}
+                  placeholder="someone@example.com"
+                  type="email"
+                  required
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+                />
+                <button
+                  disabled={granting}
+                  className="whitespace-nowrap rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
+                >
+                  {granting ? "Granting..." : "Grant admin"}
+                </button>
+              </form>
             </div>
 
             <div className="rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/30">
