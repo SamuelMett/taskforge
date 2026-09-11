@@ -97,7 +97,15 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="text-sm text-zinc-300">Password</label>
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-zinc-300">Password</label>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-indigo-400 hover:text-indigo-300"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <input
                 className="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
                 value={password}
