@@ -17,4 +17,5 @@ class LoginRequest(BaseModel):
 
 class Login2FARequest(BaseModel):
     email: EmailStr
-    code: str
+    password: str
+    otp: str

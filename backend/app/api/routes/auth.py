@@ -130,7 +130,7 @@ def twofa_setup(
 
 @router.post("/2fa/confirm")
 def twofa_confirm(
-    code: str,
+    code: str = Body(embed=True),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

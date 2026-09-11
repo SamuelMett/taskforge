@@ -31,6 +31,11 @@ export default function Login() {
         password,
       });
 
+      if (res.data?.requires_2fa) {
+        nav("/2fa", { state: { email: cleanEmail, password } });
+        return;
+      }
+
       const token = res.data?.access_token;
 
       if (!token) {
@@ -42,11 +47,6 @@ export default function Login() {
       localStorage.setItem("token", token);
       localStorage.setItem("email", cleanEmail);
       setAuthToken(token);
-
-      // Clean up any old 2FA leftovers
-      localStorage.removeItem("pending_2fa_email");
-      localStorage.removeItem("pending_2fa_token");
-      localStorage.removeItem("twofa_enabled");
 
       nav("/tasks");
     } catch (err) {
