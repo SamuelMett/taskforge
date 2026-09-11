@@ -4,3 +4,4 @@ from app.models.user import User
 from app.models.task import Task
 from app.models.password_reset import PasswordResetToken
 from app.models.admin import AdminUser
+from app.models.email_verification import EmailVerificationToken, VerifiedEmail

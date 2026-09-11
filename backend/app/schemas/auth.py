@@ -22,3 +22,20 @@ class ResetPasswordRequest(BaseModel):
         if len(v) < 8:
             raise ValueError("Password must be at least 8 characters")
         return v
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_len(cls, v: str):
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+class Disable2FARequest(BaseModel):
+    password: str
+
+class VerifyEmailRequest(BaseModel):
+    token: str

@@ -38,7 +38,7 @@ export default function Register() {
       // helpful UX: prefill login email
       localStorage.setItem("email", cleanEmail);
 
-      nav("/login");
+      nav("/login", { state: { justRegistered: true } });
     } catch (err) {
       const msg =
         err?.response?.data?.detail ||

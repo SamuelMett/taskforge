@@ -17,6 +17,18 @@ export default function Settings() {
   const [confirmCode, setConfirmCode] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [disablingTwofa, setDisablingTwofa] = useState(false);
+  const [disableTwofaPassword, setDisableTwofaPassword] = useState("");
+  const [disableTwofaBusy, setDisableTwofaBusy] = useState(false);
+
+  const [isVerified, setIsVerified] = useState(null);
+  const [resending, setResending] = useState(false);
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+
   async function loadMe() {
     try {
       const res = await api.get("/auth/me");
@@ -27,11 +39,75 @@ export default function Settings() {
     } catch {
       // ignore
     }
+
+    try {
+      const res = await api.get("/auth/verification-status");
+      setIsVerified(Boolean(res?.data?.is_verified));
+    } catch {
+      // ignore
+    }
   }
 
   useEffect(() => {
     loadMe();
   }, []);
+
+  async function resendVerification() {
+    setResending(true);
+    try {
+      const res = await api.post("/auth/resend-verification");
+      toast.success(res?.data?.message || "Verification email sent");
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Couldn't send verification email");
+    } finally {
+      setResending(false);
+    }
+  }
+
+  async function changePassword(e) {
+    e.preventDefault();
+
+    if (newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      toast.error("New passwords don't match.");
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      await api.post("/auth/change-password", {
+        current_password: currentPassword,
+        new_password: newPassword,
+      });
+      toast.success("Password updated");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Couldn't update password");
+    } finally {
+      setChangingPassword(false);
+    }
+  }
+
+  async function disableTwofa(e) {
+    e.preventDefault();
+    setDisableTwofaBusy(true);
+    try {
+      await api.post("/auth/2fa/disable", { password: disableTwofaPassword });
+      toast.success("2FA disabled");
+      setTwofaEnabled(false);
+      setDisablingTwofa(false);
+      setDisableTwofaPassword("");
+    } catch (err) {
+      toast.error(err?.response?.data?.detail || "Couldn't disable 2FA");
+    } finally {
+      setDisableTwofaBusy(false);
+    }
+  }
 
   async function startTwofaSetup() {
     setBusy(true);
@@ -125,6 +201,71 @@ export default function Settings() {
           <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
             Signed in as: <span className="font-medium">{email}</span>
           </div>
+
+          {isVerified === false && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+              <span className="text-sm text-amber-700 dark:text-amber-300">
+                Your email isn't verified yet.
+              </span>
+              <button
+                onClick={resendVerification}
+                disabled={resending}
+                className="whitespace-nowrap rounded-lg border border-amber-500/40 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-500/10 disabled:opacity-60 dark:text-amber-300"
+              >
+                {resending ? "Sending..." : "Resend verification email"}
+              </button>
+            </div>
+          )}
+
+          {isVerified === true && (
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              Email verified
+            </div>
+          )}
+        </div>
+
+        {/* Change password */}
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900/30">
+          <div className="font-semibold">Change password</div>
+          <div className="text-sm text-zinc-600 dark:text-zinc-400">
+            Update your account password.
+          </div>
+
+          <form onSubmit={changePassword} className="mt-4 space-y-3">
+            <input
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              type="password"
+              placeholder="Current password"
+              autoComplete="current-password"
+              required
+              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+            />
+            <input
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              type="password"
+              placeholder="New password (at least 8 characters)"
+              autoComplete="new-password"
+              required
+              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+            />
+            <input
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
+              type="password"
+              placeholder="Confirm new password"
+              autoComplete="new-password"
+              required
+              className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+            />
+            <button
+              disabled={changingPassword}
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
+            >
+              {changingPassword ? "Updating..." : "Update password"}
+            </button>
+          </form>
         </div>
 
         {/* Two-factor authentication */}
@@ -138,10 +279,18 @@ export default function Settings() {
               </div>
             </div>
 
-            {twofaEnabled === true && !settingUp && (
-              <span className="whitespace-nowrap rounded-full bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                Enabled
-              </span>
+            {twofaEnabled === true && !disablingTwofa && (
+              <div className="flex items-center gap-2">
+                <span className="whitespace-nowrap rounded-full bg-emerald-500/10 px-3 py-1 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                  Enabled
+                </span>
+                <button
+                  onClick={() => setDisablingTwofa(true)}
+                  className="whitespace-nowrap rounded-xl border border-zinc-200 px-3 py-1.5 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                >
+                  Disable
+                </button>
+              </div>
             )}
 
             {twofaEnabled === false && !settingUp && (
@@ -154,6 +303,40 @@ export default function Settings() {
               </button>
             )}
           </div>
+
+          {disablingTwofa && (
+            <div className="mt-5 border-t border-zinc-200 pt-5 dark:border-zinc-800">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Enter your password to confirm disabling 2FA.
+              </p>
+              <form onSubmit={disableTwofa} className="mt-3 flex gap-2">
+                <input
+                  value={disableTwofaPassword}
+                  onChange={(e) => setDisableTwofaPassword(e.target.value)}
+                  type="password"
+                  placeholder="Password"
+                  autoFocus
+                  className="w-full max-w-xs rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100"
+                />
+                <button
+                  disabled={disableTwofaBusy || !disableTwofaPassword}
+                  className="whitespace-nowrap rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-60"
+                >
+                  {disableTwofaBusy ? "Disabling..." : "Disable 2FA"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDisablingTwofa(false);
+                    setDisableTwofaPassword("");
+                  }}
+                  className="rounded-xl border border-zinc-200 px-4 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                >
+                  Cancel
+                </button>
+              </form>
+            </div>
+          )}
 
           {settingUp && (
             <div className="mt-5 border-t border-zinc-200 pt-5 dark:border-zinc-800">

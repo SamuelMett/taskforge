@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.models.user import User
 from app.models.password_reset import PasswordResetToken
+from app.models.email_verification import EmailVerificationToken, VerifiedEmail
 from app.schemas.user import UserCreate, UserOut
 from app.core.security import hash_password, verify_password, create_access_token
 from app.core.limiter import limiter
@@ -26,14 +27,45 @@ from app.schemas.auth import (
     Login2FARequest,
     ForgotPasswordRequest,
     ResetPasswordRequest,
+    ChangePasswordRequest,
+    Disable2FARequest,
+    VerifyEmailRequest,
 )
 from app.api.deps.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
 RESET_TOKEN_TTL_MINUTES = 30
+VERIFY_TOKEN_TTL_HOURS = 24
 
 router = APIRouter()
+
+
+def _send_verification_email(user: User, db: Session) -> None:
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=VERIFY_TOKEN_TTL_HOURS)
+
+    db.add(
+        EmailVerificationToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=expires_at,
+        )
+    )
+    db.commit()
+
+    verify_link = f"{settings.FRONTEND_URL}/verify-email?token={raw_token}"
+    body = (
+        f"Welcome to TaskForge!\n\n"
+        f"Verify your email: {verify_link}\n\n"
+        f"This link expires in {VERIFY_TOKEN_TTL_HOURS} hours."
+    )
+
+    try:
+        send_email(to=user.email, subject="Verify your TaskForge email", body=body)
+    except Exception:
+        logger.exception("Failed to send verification email to %s", user.email)
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -55,6 +87,8 @@ def register(request: Request, payload: UserCreate, db: Session = Depends(get_db
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    _send_verification_email(user, db)
 
     return user
 
@@ -172,6 +206,103 @@ def twofa_confirm(
 
     return {"message": "2FA enabled successfully", "twofa_enabled": True}
 
+
+@router.post("/2fa/disable")
+@limiter.limit("5/hour")
+def twofa_disable(
+    request: Request,
+    payload: Disable2FARequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Requires re-entering the account password, not just a valid session
+    token, so a stolen/leaked token alone can't be used to turn off 2FA.
+    """
+    if not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect password")
+
+    user.twofa_enabled = False
+    user.twofa_secret = None
+
+    db.commit()
+    db.refresh(user)
+
+    return {"message": "2FA disabled", "twofa_enabled": False}
+
+
+@router.post("/change-password")
+@limiter.limit("5/hour")
+def change_password(
+    request: Request,
+    payload: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Current password is incorrect")
+
+    user.password_hash = hash_password(payload.new_password)
+    db.commit()
+
+    return {"message": "Password updated"}
+
+
+@router.get("/verification-status")
+def verification_status(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    is_verified = db.query(VerifiedEmail).filter(VerifiedEmail.user_id == user.id).first() is not None
+    return {"is_verified": is_verified}
+
+
+@router.post("/resend-verification")
+@limiter.limit("3/hour")
+def resend_verification(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    already_verified = db.query(VerifiedEmail).filter(VerifiedEmail.user_id == user.id).first() is not None
+    if already_verified:
+        return {"message": "Email already verified"}
+
+    _send_verification_email(user, db)
+    return {"message": "Verification email sent"}
+
+
+@router.post("/verify-email")
+@limiter.limit("10/hour")
+def verify_email(request: Request, payload: VerifyEmailRequest, db: Session = Depends(get_db)):
+    token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
+
+    token_row = (
+        db.query(EmailVerificationToken)
+        .filter(EmailVerificationToken.token_hash == token_hash)
+        .first()
+    )
+
+    now = datetime.now(timezone.utc)
+    if (
+        not token_row
+        or token_row.used
+        or token_row.expires_at.replace(tzinfo=timezone.utc) < now
+    ):
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link")
+
+    token_row.used = True
+
+    already_verified = (
+        db.query(VerifiedEmail).filter(VerifiedEmail.user_id == token_row.user_id).first()
+        is not None
+    )
+    if not already_verified:
+        db.add(VerifiedEmail(user_id=token_row.user_id))
+
+    db.commit()
+
+    return {"message": "Email verified"}
 
 
 @router.post("/forgot-password")

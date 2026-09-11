@@ -4,6 +4,7 @@ import Register from "./pages/Register";
 import TwoFA from "./pages/TwoFA";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import VerifyEmail from "./pages/VerifyEmail";
 import Tasks from "./pages/Tasks";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
@@ -20,6 +21,7 @@ export default function App() {
       <Route path="/2fa" element={<TwoFA />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
 
       <Route
         path="/tasks"
