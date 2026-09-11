@@ -18,7 +18,7 @@ def send_email(to: str, subject: str, body: str) -> None:
     # in case that's pasted verbatim into the env var.
     password = settings.SMTP_PASSWORD.replace(" ", "")
 
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=10) as server:
         server.starttls()
         server.login(settings.SMTP_USER, password)
         server.send_message(msg)
