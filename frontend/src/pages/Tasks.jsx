@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import Layout from "../components/Layout";
-import Section from "../components/Section";
 import TaskCard from "../components/TaskCard";
 import { useToast } from "../components/ToastProvider";
 
@@ -92,6 +91,7 @@ export default function Tasks() {
 
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   const dueRef = useRef(null);
   const editDueRef = useRef(null);
@@ -135,6 +135,7 @@ export default function Tasks() {
       setDesc("");
       setDueAt("");
       setPriority("med");
+      setQuickAddOpen(false);
 
       toast.success("Task created");
       await loadTasks({ keepLoading: true, silent: true });
@@ -274,7 +275,13 @@ export default function Tasks() {
       return due >= todayStart && due < tomorrowStart;
     }).length;
 
-    return { total, done, overdue, dueToday };
+    const upcoming = tasks.filter((t) => {
+      if (t.is_done) return false;
+      if (!t.due_at) return false;
+      return new Date(t.due_at) >= tomorrowStart;
+    }).length;
+
+    return { total, done, overdue, dueToday, upcoming };
   }, [tasks]);
 
   const filtered = useMemo(() => {
@@ -527,28 +534,6 @@ export default function Tasks() {
           </div>
         </div>
       )}
-
-      <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950/30">
-        <div className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-          Insights
-        </div>
-        <div className="mt-3 grid gap-2 text-sm">
-          {[
-            ["Total", stats.total],
-            ["Completed", stats.done],
-            ["Overdue", stats.overdue],
-            ["Due today", stats.dueToday],
-          ].map(([k, v]) => (
-            <div
-              key={k}
-              className="flex items-center justify-between text-zinc-600 dark:text-zinc-300"
-            >
-              <span>{k}</span>
-              <span className="text-zinc-900 dark:text-zinc-100">{v}</span>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 
@@ -658,27 +643,78 @@ export default function Tasks() {
         </div>
       ) : null}
 
-      {/* ✅ Key layout change: at xl use 2 columns (Create + Lists), at 2xl become 3 columns */}
-      <div className="mt-8 grid gap-6 xl:grid-cols-[380px_1fr] 2xl:grid-cols-3">
-        {/* Create */}
-        <div className="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-900 dark:bg-zinc-900/20">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            Create task
-          </h2>
-
-          <form onSubmit={createTask} className="mt-5 space-y-4">
-            <div>
-              <label className="text-sm text-zinc-700 dark:text-zinc-300">Title</label>
-              <input
-                className={`${inputBase} ${inputLight} ${inputDark}`}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Type your task title..."
-                required
-                disabled={creating}
-              />
+      {/* Status strip */}
+      {tab === "tasks" && (
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            ["Overdue", stats.overdue, "overdue"],
+            ["Due today", stats.dueToday, "today"],
+            ["Upcoming", stats.upcoming, "upcoming"],
+            ["Completed", stats.done, "done"],
+          ].map(([label, value, kind]) => (
+            <div
+              key={label}
+              className={[
+                "rounded-2xl border p-4",
+                kind === "overdue"
+                  ? "border-red-500/25 bg-red-500/5"
+                  : kind === "today"
+                  ? "border-amber-500/25 bg-amber-500/5"
+                  : kind === "done"
+                  ? "border-emerald-500/25 bg-emerald-500/5"
+                  : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/20",
+              ].join(" ")}
+            >
+              <div
+                className={[
+                  "text-2xl font-semibold tabular-nums",
+                  kind === "overdue"
+                    ? "text-red-600 dark:text-red-400"
+                    : kind === "today"
+                    ? "text-amber-600 dark:text-amber-400"
+                    : kind === "done"
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-zinc-900 dark:text-zinc-100",
+                ].join(" ")}
+              >
+                {value}
+              </div>
+              <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                {label}
+              </div>
             </div>
+          ))}
+        </div>
+      )}
 
+      {/* Quick add */}
+      <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/20">
+        <form onSubmit={createTask} className="flex items-center gap-3">
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
+            +
+          </span>
+          <input
+            className="min-w-0 flex-1 bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onFocus={() => setQuickAddOpen(true)}
+            placeholder="Add a task — press Enter to save, or click for more options"
+            required
+            disabled={creating}
+          />
+          {!quickAddOpen && (
+            <button
+              type="button"
+              onClick={() => setQuickAddOpen(true)}
+              className="shrink-0 whitespace-nowrap rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-900"
+            >
+              More options
+            </button>
+          )}
+        </form>
+
+        {quickAddOpen && (
+          <div className="mt-4 space-y-4 border-t border-zinc-100 pt-4 dark:border-zinc-900">
             <div>
               <label className="text-sm text-zinc-700 dark:text-zinc-300">
                 Description
@@ -688,173 +724,130 @@ export default function Tasks() {
                 value={desc}
                 onChange={(e) => setDesc(e.target.value)}
                 placeholder="Optional details…"
-                rows={4}
+                rows={3}
                 disabled={creating}
               />
             </div>
 
-            <div>
-              <label className="text-sm text-zinc-700 dark:text-zinc-300">
-                Priority
-              </label>
-              <select
-                className={`${inputBase} ${inputLight} ${inputDark}`}
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-                disabled={creating}
-              >
-                <option value="high">High</option>
-                <option value="med">Med</option>
-                <option value="low">Low</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-sm text-zinc-700 dark:text-zinc-300">
-                Due date
-              </label>
-              <div className="relative mt-1">
-                <input
-                  ref={dueRef}
-                  type="datetime-local"
-                  step="60"
-                  className={[
-                    // ✅ FIX: more right padding so AM/PM doesn't clip
-                    "w-full rounded-xl border px-3 py-2 pr-32 text-sm outline-none focus:border-indigo-500",
-                    "border-zinc-200 bg-white text-zinc-900",
-                    "dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100",
-                  ].join(" ")}
-                  value={dueAt}
-                  onChange={(e) => setDueAt(e.target.value)}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-sm text-zinc-700 dark:text-zinc-300">
+                  Priority
+                </label>
+                <select
+                  className={`${inputBase} ${inputLight} ${inputDark}`}
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value)}
                   disabled={creating}
-                />
-                <button
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => openNativePicker(dueRef.current)}
-                  disabled={creating}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                 >
-                  Pick
-                </button>
+                  <option value="high">High</option>
+                  <option value="med">Med</option>
+                  <option value="low">Low</option>
+                </select>
               </div>
-              <div className="mt-1 text-xs text-zinc-500">
-                Click <span className="text-zinc-700 dark:text-zinc-300">Pick</span>{" "}
-                to open the date/time selector.
+
+              <div>
+                <label className="text-sm text-zinc-700 dark:text-zinc-300">
+                  Due date
+                </label>
+                <div className="relative mt-1">
+                  <input
+                    ref={dueRef}
+                    type="datetime-local"
+                    step="60"
+                    className={[
+                      "w-full rounded-xl border px-3 py-2 pr-16 text-sm outline-none focus:border-indigo-500",
+                      "border-zinc-200 bg-white text-zinc-900",
+                      "dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100",
+                    ].join(" ")}
+                    value={dueAt}
+                    onChange={(e) => setDueAt(e.target.value)}
+                    disabled={creating}
+                  />
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => openNativePicker(dueRef.current)}
+                    disabled={creating}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                  >
+                    Pick
+                  </button>
+                </div>
               </div>
             </div>
 
-            <button
-              disabled={creating || !title.trim()}
-              className="w-full rounded-xl bg-indigo-600 py-2 font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
-            >
-              {creating ? "Adding..." : "Add task"}
-            </button>
-          </form>
-        </div>
-
-        {/* Lists */}
-        {tab === "history" ? (
-          <div className="2xl:col-span-2">
-            <Section title="History" count={historyList.length}>
-              {historyList.length === 0 ? (
-                <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                  Nothing completed yet.
-                </div>
-              ) : (
-                historyList.map((t) => (
-                  <TaskCard
-                    key={t.id}
-                    task={t}
-                    onToggleDone={toggleDone}
-                    onDelete={deleteTask}
-                    onSelect={setSelected}
-                    selected={selected?.id === t.id}
-                  />
-                ))
-              )}
-            </Section>
+            <div className="flex gap-2">
+              <button
+                onClick={createTask}
+                disabled={creating || !title.trim()}
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
+              >
+                {creating ? "Adding..." : "Add task"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickAddOpen(false);
+                  setDesc("");
+                  setPriority("med");
+                  setDueAt("");
+                }}
+                disabled={creating}
+                className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 hover:bg-zinc-50 disabled:opacity-60 dark:border-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-900"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-        ) : (
-        <div className="2xl:col-span-2 grid gap-6 xl:grid-cols-1 2xl:grid-cols-2">
-          <Section title="Overdue" count={grouped.overdue.length}>
-            {grouped.overdue.length === 0 ? (
-              <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                Nothing overdue 🎉
-              </div>
-            ) : (
-              grouped.overdue.map((t) => (
-                <TaskCard
-                  key={t.id}
-                  task={t}
-                  onToggleDone={toggleDone}
-                  onDelete={deleteTask}
-                  onSelect={setSelected}
-                  selected={selected?.id === t.id}
-                />
-              ))
-            )}
-          </Section>
-
-          <Section title="Today" count={grouped.today.length}>
-            {grouped.today.length === 0 ? (
-              <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                No tasks due today.
-              </div>
-            ) : (
-              grouped.today.map((t) => (
-                <TaskCard
-                  key={t.id}
-                  task={t}
-                  onToggleDone={toggleDone}
-                  onDelete={deleteTask}
-                  onSelect={setSelected}
-                  selected={selected?.id === t.id}
-                />
-              ))
-            )}
-          </Section>
-
-          <Section title="Upcoming" count={grouped.upcoming.length}>
-            {grouped.upcoming.length === 0 ? (
-              <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                Nothing coming up.
-              </div>
-            ) : (
-              grouped.upcoming.map((t) => (
-                <TaskCard
-                  key={t.id}
-                  task={t}
-                  onToggleDone={toggleDone}
-                  onDelete={deleteTask}
-                  onSelect={setSelected}
-                  selected={selected?.id === t.id}
-                />
-              ))
-            )}
-          </Section>
-
-          <Section title="No due date" count={grouped.noDue.length}>
-            {grouped.noDue.length === 0 ? (
-              <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                No undated tasks.
-              </div>
-            ) : (
-              grouped.noDue.map((t) => (
-                <TaskCard
-                  key={t.id}
-                  task={t}
-                  onToggleDone={toggleDone}
-                  onDelete={deleteTask}
-                  onSelect={setSelected}
-                  selected={selected?.id === t.id}
-                />
-              ))
-            )}
-          </Section>
-        </div>
         )}
       </div>
+
+      {/* List */}
+      {tab === "history"
+        ? historyList.length > 0 && (
+            <div className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/20">
+              {historyList.map((t) => (
+                <TaskCard
+                  key={t.id}
+                  task={t}
+                  onToggleDone={toggleDone}
+                  onDelete={deleteTask}
+                  onSelect={setSelected}
+                  selected={selected?.id === t.id}
+                />
+              ))}
+            </div>
+          )
+        : hasAnyFiltered && (
+            <div className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/20">
+              {[
+                { key: "overdue", label: "Overdue", dot: "bg-red-500", items: grouped.overdue },
+                { key: "today", label: "Today", dot: "bg-indigo-500", items: grouped.today },
+                { key: "upcoming", label: "Upcoming", dot: "bg-zinc-400 dark:bg-zinc-600", items: grouped.upcoming },
+                { key: "noDue", label: "No due date", dot: "bg-zinc-300 dark:bg-zinc-700", items: grouped.noDue },
+              ]
+                .filter((g) => g.items.length > 0)
+                .map((g) => (
+                  <div key={g.key}>
+                    <div className="flex items-center gap-2 px-4 pb-1.5 pt-4 text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                      <span className={`h-1.5 w-1.5 rounded-full ${g.dot}`} />
+                      {g.label}
+                    </div>
+                    {g.items.map((t) => (
+                      <TaskCard
+                        key={t.id}
+                        task={t}
+                        onToggleDone={toggleDone}
+                        onDelete={deleteTask}
+                        onSelect={setSelected}
+                        selected={selected?.id === t.id}
+                      />
+                    ))}
+                  </div>
+                ))}
+            </div>
+          )}
     </Layout>
   );
 }
