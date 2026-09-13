@@ -83,6 +83,7 @@ export default function Tasks() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [sort, setSort] = useState("due");
   const [selected, setSelected] = useState(null);
+  const [statusFilter, setStatusFilter] = useState(null); // null | "overdue" | "today" | "upcoming"
 
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
@@ -651,39 +652,72 @@ export default function Tasks() {
             ["Due today", stats.dueToday, "today"],
             ["Upcoming", stats.upcoming, "upcoming"],
             ["Completed", stats.done, "done"],
-          ].map(([label, value, kind]) => (
-            <div
-              key={label}
-              className={[
-                "rounded-2xl border p-4",
-                kind === "overdue"
-                  ? "border-red-500/25 bg-red-500/5"
-                  : kind === "today"
-                  ? "border-amber-500/25 bg-amber-500/5"
-                  : kind === "done"
-                  ? "border-emerald-500/25 bg-emerald-500/5"
-                  : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/20",
-              ].join(" ")}
-            >
-              <div
+          ].map(([label, value, kind]) => {
+            const isFilterable = kind !== "done";
+            const active = isFilterable && statusFilter === kind;
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => {
+                  if (kind === "done") {
+                    setTab("history");
+                    return;
+                  }
+                  setStatusFilter((prev) => (prev === kind ? null : kind));
+                }}
                 className={[
-                  "text-2xl font-semibold tabular-nums",
+                  "rounded-2xl border p-4 text-left transition",
+                  active ? "ring-2 ring-offset-0" : "",
                   kind === "overdue"
-                    ? "text-red-600 dark:text-red-400"
+                    ? `border-red-500/25 bg-red-500/5 hover:bg-red-500/10 ${active ? "ring-red-500/50" : ""}`
                     : kind === "today"
-                    ? "text-amber-600 dark:text-amber-400"
+                    ? `border-amber-500/25 bg-amber-500/5 hover:bg-amber-500/10 ${active ? "ring-amber-500/50" : ""}`
                     : kind === "done"
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-zinc-900 dark:text-zinc-100",
+                    ? "border-emerald-500/25 bg-emerald-500/5 hover:bg-emerald-500/10"
+                    : `border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/20 dark:hover:bg-zinc-900/40 ${active ? "ring-indigo-500/50" : ""}`,
                 ].join(" ")}
               >
-                {value}
-              </div>
-              <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                {label}
-              </div>
-            </div>
-          ))}
+                <div
+                  className={[
+                    "text-2xl font-semibold tabular-nums",
+                    kind === "overdue"
+                      ? "text-red-600 dark:text-red-400"
+                      : kind === "today"
+                      ? "text-amber-600 dark:text-amber-400"
+                      : kind === "done"
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-zinc-900 dark:text-zinc-100",
+                  ].join(" ")}
+                >
+                  {value}
+                </div>
+                <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                  {label}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {statusFilter && tab === "tasks" && (
+        <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+          Showing only:{" "}
+          <span className="font-medium text-zinc-800 dark:text-zinc-200">
+            {statusFilter === "overdue"
+              ? "Overdue"
+              : statusFilter === "today"
+              ? "Due today"
+              : "Upcoming"}
+          </span>
+          <button
+            type="button"
+            onClick={() => setStatusFilter(null)}
+            className="rounded-full border border-zinc-200 px-2 py-0.5 text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+          >
+            Clear
+          </button>
         </div>
       )}
 
@@ -819,35 +853,44 @@ export default function Tasks() {
               ))}
             </div>
           )
-        : hasAnyFiltered && (
-            <div className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/20">
-              {[
-                { key: "overdue", label: "Overdue", dot: "bg-red-500", items: grouped.overdue },
-                { key: "today", label: "Today", dot: "bg-indigo-500", items: grouped.today },
-                { key: "upcoming", label: "Upcoming", dot: "bg-zinc-400 dark:bg-zinc-600", items: grouped.upcoming },
-                { key: "noDue", label: "No due date", dot: "bg-zinc-300 dark:bg-zinc-700", items: grouped.noDue },
-              ]
-                .filter((g) => g.items.length > 0)
-                .map((g) => (
-                  <div key={g.key}>
-                    <div className="flex items-center gap-2 px-4 pb-1.5 pt-4 text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                      <span className={`h-1.5 w-1.5 rounded-full ${g.dot}`} />
-                      {g.label}
-                    </div>
-                    {g.items.map((t) => (
-                      <TaskCard
-                        key={t.id}
-                        task={t}
-                        onToggleDone={toggleDone}
-                        onDelete={deleteTask}
-                        onSelect={setSelected}
-                        selected={selected?.id === t.id}
-                      />
-                    ))}
+        : hasAnyFiltered &&
+          (() => {
+            const visibleGroups = [
+              { key: "overdue", label: "Overdue", dot: "bg-red-500", items: grouped.overdue },
+              { key: "today", label: "Today", dot: "bg-indigo-500", items: grouped.today },
+              { key: "upcoming", label: "Upcoming", dot: "bg-zinc-400 dark:bg-zinc-600", items: grouped.upcoming },
+              { key: "noDue", label: "No due date", dot: "bg-zinc-300 dark:bg-zinc-700", items: grouped.noDue },
+            ].filter((g) => g.items.length > 0 && (!statusFilter || g.key === statusFilter));
+
+            return (
+              <div className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/20">
+                {visibleGroups.length === 0 ? (
+                  <div className="p-6 text-sm text-zinc-600 dark:text-zinc-400">
+                    Nothing in this group right now.
                   </div>
-                ))}
-            </div>
-          )}
+                ) : (
+                  visibleGroups.map((g) => (
+                    <div key={g.key}>
+                      <div className="flex items-center gap-2 px-4 pb-1.5 pt-4 text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                        <span className={`h-1.5 w-1.5 rounded-full ${g.dot}`} />
+                        {g.label}
+                      </div>
+                      {g.items.map((t) => (
+                        <TaskCard
+                          key={t.id}
+                          task={t}
+                          onToggleDone={toggleDone}
+                          onDelete={deleteTask}
+                          onSelect={setSelected}
+                          selected={selected?.id === t.id}
+                        />
+                      ))}
+                    </div>
+                  ))
+                )}
+              </div>
+            );
+          })()}
     </Layout>
   );
 }
