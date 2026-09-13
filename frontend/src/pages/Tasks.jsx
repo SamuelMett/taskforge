@@ -282,7 +282,9 @@ export default function Tasks() {
       return new Date(t.due_at) >= tomorrowStart;
     }).length;
 
-    return { total, done, overdue, dueToday, upcoming };
+    const noDue = tasks.filter((t) => !t.is_done && !t.due_at).length;
+
+    return { total, done, overdue, dueToday, upcoming, noDue };
   }, [tasks]);
 
   const filtered = useMemo(() => {
@@ -646,11 +648,12 @@ export default function Tasks() {
 
       {/* Status strip */}
       {tab === "tasks" && (
-        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {[
             ["Overdue", stats.overdue, "overdue"],
             ["Due today", stats.dueToday, "today"],
             ["Upcoming", stats.upcoming, "upcoming"],
+            ["No due date", stats.noDue, "noDue"],
             ["Completed", stats.done, "done"],
           ].map(([label, value, kind]) => {
             const isFilterable = kind !== "done";
@@ -709,7 +712,9 @@ export default function Tasks() {
               ? "Overdue"
               : statusFilter === "today"
               ? "Due today"
-              : "Upcoming"}
+              : statusFilter === "upcoming"
+              ? "Upcoming"
+              : "No due date"}
           </span>
           <button
             type="button"
