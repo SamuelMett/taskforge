@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { api, setAuthToken } from "../api/client";
 
 function isValidEmail(email) {
@@ -9,9 +9,11 @@ function isValidEmail(email) {
 export default function Login() {
   const nav = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState(localStorage.getItem("email") || "");
   const [password, setPassword] = useState("");
   const justRegistered = Boolean(location.state?.justRegistered);
+  const sessionExpired = searchParams.get("expired") === "1";
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -77,6 +79,12 @@ export default function Login() {
             <div className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-200">
               Account created! Check your inbox for a verification email,
               then log in below.
+            </div>
+          )}
+
+          {sessionExpired && !error && !justRegistered && (
+            <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
+              Your session expired. Please log in again.
             </div>
           )}
 
