@@ -17,6 +17,7 @@ export default function Login() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -123,16 +124,47 @@ export default function Login() {
                   Forgot password?
                 </Link>
               </div>
-              <input
-                className="mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 outline-none focus:border-indigo-500"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                type="password"
-                autoComplete="current-password"
-                required
-                disabled={loading}
-              />
+              <div className="relative mt-1">
+                <input
+                  className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 pr-10 outline-none focus:border-indigo-500"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  required
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-500 hover:text-zinc-300"
+                >
+                  {showPassword ? (
+                    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none">
+                      <path
+                        d="M2 2l16 16M8.5 8.7a2 2 0 0 0 2.8 2.8M6.1 6.2C4 7.5 2.6 9.3 2 10c1.4 2.4 4.4 6 8 6 1.4 0 2.7-.4 3.8-1.1M9.9 4.1c.4 0 .7-.1 1.1-.1 3.6 0 6.6 3.6 8 6-.5.9-1.3 2-2.3 3"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none">
+                      <path
+                        d="M2 10c1.4-2.4 4.4-6 8-6s6.6 3.6 8 6c-1.4 2.4-4.4 6-8 6s-6.6-3.6-8-6Z"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinejoin="round"
+                      />
+                      <circle cx="10" cy="10" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
 
             <button
